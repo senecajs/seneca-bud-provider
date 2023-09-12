@@ -1,13 +1,13 @@
-const Webflow = require('webflow-api')
-const token = require('./local-env').WEBFLOW_ACCESSTOKEN
+const Bud = require('bud-api')
+const token = require('./local-env').BUD_ACCESSTOKEN
 
 run()
 
 async function run() {
   // initialize the client with the access token
-  const webflow = new Webflow({ token })
+  const bud = new Bud({ token })
 
-  const col = await webflow.collection({
+  const col = await bud.collection({
     collectionId: '',
   })
   const colItems = await col.items()

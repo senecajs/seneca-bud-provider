@@ -4,7 +4,7 @@ const Pkg = require('../package.json')
 
 module.exports = {
   print: false,
-  pattern: 'sys:provider,provider:webflow',
+  pattern: 'sys:provider,provider:bud',
   allow: { missing: true },
 
   calls: [
@@ -12,7 +12,7 @@ module.exports = {
       pattern: 'get:info',
       out: {
         ok: true,
-        name: 'webflow',
+        name: 'bud',
         version: Pkg.version,
       },
     },
