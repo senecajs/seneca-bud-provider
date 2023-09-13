@@ -1,10 +1,10 @@
 {
   "name": "@seneca/bud-provider",
-  "version": "0.1.2",
+  "version": "0.1.0",
   "main": "dist/bud-provider.js",
   "type": "commonjs",
   "types": "dist/bud-provider.d.ts",
-  "description": "Seneca entity provider for the Bud CMS API.",
+  "description": "Seneca entity provider for the Bud API.",
   "homepage": "https://github.com/senecajs/seneca-bud-provider",
   "keywords": [
     "seneca",
@@ -28,9 +28,9 @@
     "test-watch": "jest --coverage --watchAll",
     "watch": "tsc -w -d",
     "build": "tsc -d",
-    "doc": "echo seneca-doc -p @seneca/provider FIX-broken",
+    "doc": "seneca-doc -p @seneca/provider",
     "clean": "rm -rf node_modules dist yarn.lock package-lock.json",
-    "reset": "npm run clean && npm i && npm test",
+    "reset": "npm run clean && npm i && num run build && npm test",
     "repo-tag": "REPO_VERSION=`node -e \"console.log(require('./package').version)\"` && echo TAG: v$REPO_VERSION && git commit -a -m v$REPO_VERSION && git push && git tag v$REPO_VERSION && git push --tags;",
     "repo-publish": "npm run clean && npm i && npm run repo-publish-quick",
     "repo-publish-quick": "npm run build && npm run test && npm run doc && npm run repo-tag && npm publish --access public --registry https://registry.npmjs.org "
@@ -59,7 +59,7 @@
     "@types/node": "^20.6.0",
     "esbuild": "^0.19.2",
     "esbuild-jest": "^0.5.0",
-    "jest": "^29.6.4",
+    "jest": "^29.7.0",
     "node-fetch": "^2",
     "seneca": ">=3",
     "seneca-msg-test": "^3.4.0",

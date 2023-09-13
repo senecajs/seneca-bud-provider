@@ -65,11 +65,66 @@ $ npm install @seneca/bud-provider @seneca/env
 
 ## How to get access
 
+
+<!--START:options-->
+
+
 ## Options
+
+*None.*
+
+
+<!--END:options-->
+
+<!--START:action-list-->
+
 
 ## Action Patterns
 
+* ["role":"entity","base":"bud","cmd":"load","name":"connection","zone":"provider"](#-roleentitybasebudcmdloadnameconnectionzoneprovider-)
+* ["role":"entity","base":"bud","cmd":"load","name":"customer","zone":"provider"](#-roleentitybasebudcmdloadnamecustomerzoneprovider-)
+* ["role":"entity","base":"bud","cmd":"save","name":"customer","zone":"provider"](#-roleentitybasebudcmdsavenamecustomerzoneprovider-)
+* ["sys":"provider","get":"info","provider":"bud"](#-sysprovidergetinfoproviderbud-)
+
+
+<!--END:action-list-->
+
+<!--START:action-desc-->
+
+
 ## Action Descriptions
+
+### &laquo; `"role":"entity","base":"bud","cmd":"load","name":"connection","zone":"provider"` &raquo;
+
+No description provided.
+
+
+
+----------
+### &laquo; `"role":"entity","base":"bud","cmd":"load","name":"customer","zone":"provider"` &raquo;
+
+No description provided.
+
+
+
+----------
+### &laquo; `"role":"entity","base":"bud","cmd":"save","name":"customer","zone":"provider"` &raquo;
+
+No description provided.
+
+
+
+----------
+### &laquo; `"sys":"provider","get":"info","provider":"bud"` &raquo;
+
+Get information about the Bud SDK.
+
+
+
+----------
+
+
+<!--END:action-desc-->
 
 ## More Examples
 

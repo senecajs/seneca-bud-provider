@@ -1,3 +1,4 @@
 module.exports = {
-  BUD_TOKEN: '<TOKEN>',
+  BUD_CLIENTID:'',
+  BUD_CLIENTSECRET:''
 }

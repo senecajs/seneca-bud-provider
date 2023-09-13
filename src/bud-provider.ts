@@ -45,8 +45,6 @@ function BudProvider(this: any, options: BudProviderOptions) {
     }
   })
 
-  console.log('POST', post)
-
 
   seneca.message('sys:provider,provider:bud,get:info', get_info)
 
@@ -57,7 +55,6 @@ function BudProvider(this: any, options: BudProviderOptions) {
       version: Pkg.version,
       sdk: {
         name: 'bud',
-        version: Pkg.dependencies['bud-api'],
       },
     }
   }
@@ -135,13 +132,13 @@ function BudProvider(this: any, options: BudProviderOptions) {
           headers
         })
 
-        console.log('LOAD CONNECT JSON', json)
+        // console.log('LOAD CONNECT JSON', json)
         let entdata = json.data
         entdata.id = id
         return entize(entdata)
       }
       catch (e: any) {
-        console.log('LOAD CONNECT ERR', e)
+        // console.log('LOAD CONNECT ERR', e)
         let res = e.provider?.response
 
         if (404 === res.status) {
@@ -289,7 +286,7 @@ function BudProvider(this: any, options: BudProviderOptions) {
     let basic = clientid + ':' + clientsecret
     let auth = Buffer.from(basic).toString('base64')
 
-    console.log('BASIC', basic, auth)
+    // console.log('BASIC', basic, auth)
 
     this.shared.headers = {
       'X-Client-Id': clientid,

@@ -8,14 +8,16 @@ Seneca({ legacy: false })
     // debug: true,
     file: [__dirname + '/local-env.js;?'],
     var: {
-      $BUD_ACCESSTOKEN: String,
+      BUD_CLIENTID: String,
+      $BUD_CLIENTSECRET: String,
     },
   })
   .use('provider', {
     provider: {
       bud: {
         keys: {
-          accesstoken: { value: '$BUD_ACCESSTOKEN' },
+          clientid: { value: '$BUD_CLIENTID' },
+          clientsecret: { value: '$BUD_CLIENTSECRET' },
         },
       },
     },
@@ -26,6 +28,6 @@ Seneca({ legacy: false })
 
     console.log(await seneca.post('sys:provider,provider:bud,get:info'))
 
-    const list = await seneca.entity('provider/bud/site').list$()
-    console.log(list.slice(0, 3))
+    // const list = await seneca.entity('provider/bud/bank').list$()
+    // console.log(list.slice(0, 3))
   })

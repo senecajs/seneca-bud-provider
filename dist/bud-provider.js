@@ -21,7 +21,6 @@ function BudProvider(options) {
             }
         }
     });
-    console.log('POST', post);
     seneca.message('sys:provider,provider:bud,get:info', get_info);
     async function get_info(_msg) {
         return {
@@ -30,7 +29,6 @@ function BudProvider(options) {
             version: Pkg.version,
             sdk: {
                 name: 'bud',
-                version: Pkg.dependencies['bud-api'],
             },
         };
     }
@@ -96,13 +94,13 @@ function BudProvider(options) {
                 let json = await get(makeUrl('v1/open-banking/connect', id), {
                     headers
                 });
-                console.log('LOAD CONNECT JSON', json);
+                // console.log('LOAD CONNECT JSON', json)
                 let entdata = json.data;
                 entdata.id = id;
                 return entize(entdata);
             }
             catch (e) {
-                console.log('LOAD CONNECT ERR', e);
+                // console.log('LOAD CONNECT ERR', e)
                 let res = (_a = e.provider) === null || _a === void 0 ? void 0 : _a.response;
                 if (404 === res.status) {
                     return null;
@@ -205,7 +203,7 @@ function BudProvider(options) {
         this.shared.clientid = clientid;
         let basic = clientid + ':' + clientsecret;
         let auth = Buffer.from(basic).toString('base64');
-        console.log('BASIC', basic, auth);
+        // console.log('BASIC', basic, auth)
         this.shared.headers = {
             'X-Client-Id': clientid,
             Authorization: 'Basic ' + auth
