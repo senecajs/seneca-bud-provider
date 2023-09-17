@@ -81,9 +81,11 @@ $ npm install @seneca/bud-provider @seneca/env
 
 ## Action Patterns
 
-* ["role":"entity","base":"bud","cmd":"load","name":"connection","zone":"provider"](#-roleentitybasebudcmdloadnameconnectionzoneprovider-)
-* ["role":"entity","base":"bud","cmd":"load","name":"customer","zone":"provider"](#-roleentitybasebudcmdloadnamecustomerzoneprovider-)
-* ["role":"entity","base":"bud","cmd":"save","name":"customer","zone":"provider"](#-roleentitybasebudcmdsavenamecustomerzoneprovider-)
+* ["sys":"entity","base":"bud","cmd":"list","name":"account","zone":"provider"](#-sysentitybasebudcmdlistnameaccountzoneprovider-)
+* ["sys":"entity","base":"bud","cmd":"load","name":"account","zone":"provider"](#-sysentitybasebudcmdloadnameaccountzoneprovider-)
+* ["sys":"entity","base":"bud","cmd":"load","name":"connection","zone":"provider"](#-sysentitybasebudcmdloadnameconnectionzoneprovider-)
+* ["sys":"entity","base":"bud","cmd":"load","name":"customer","zone":"provider"](#-sysentitybasebudcmdloadnamecustomerzoneprovider-)
+* ["sys":"entity","base":"bud","cmd":"save","name":"customer","zone":"provider"](#-sysentitybasebudcmdsavenamecustomerzoneprovider-)
 * ["sys":"provider","get":"info","provider":"bud"](#-sysprovidergetinfoproviderbud-)
 
 
@@ -94,21 +96,35 @@ $ npm install @seneca/bud-provider @seneca/env
 
 ## Action Descriptions
 
-### &laquo; `"role":"entity","base":"bud","cmd":"load","name":"connection","zone":"provider"` &raquo;
+### &laquo; `"sys":"entity","base":"bud","cmd":"list","name":"account","zone":"provider"` &raquo;
 
 No description provided.
 
 
 
 ----------
-### &laquo; `"role":"entity","base":"bud","cmd":"load","name":"customer","zone":"provider"` &raquo;
+### &laquo; `"sys":"entity","base":"bud","cmd":"load","name":"account","zone":"provider"` &raquo;
 
 No description provided.
 
 
 
 ----------
-### &laquo; `"role":"entity","base":"bud","cmd":"save","name":"customer","zone":"provider"` &raquo;
+### &laquo; `"sys":"entity","base":"bud","cmd":"load","name":"connection","zone":"provider"` &raquo;
+
+No description provided.
+
+
+
+----------
+### &laquo; `"sys":"entity","base":"bud","cmd":"load","name":"customer","zone":"provider"` &raquo;
+
+No description provided.
+
+
+
+----------
+### &laquo; `"sys":"entity","base":"bud","cmd":"save","name":"customer","zone":"provider"` &raquo;
 
 No description provided.
 

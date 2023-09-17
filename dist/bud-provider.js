@@ -21,6 +21,7 @@ function BudProvider(options) {
             }
         }
     });
+    console.log('makeUtils', 'get', get);
     seneca.message('sys:provider,provider:bud,get:info', get_info);
     async function get_info(_msg) {
         return {
@@ -35,6 +36,7 @@ function BudProvider(options) {
     const entity = {
         customer: { cmd: { load: {}, save: {} } },
         connection: { cmd: { load: {} } },
+        account: { cmd: { load: {}, list: {} } },
     };
     entity.customer.cmd.load.action =
         async function (entize, msg) {
@@ -51,7 +53,7 @@ function BudProvider(options) {
             catch (e) {
                 // console.log('LOAD CUSTOMER', e)
                 let res = (_a = e.provider) === null || _a === void 0 ? void 0 : _a.response;
-                if (404 === res.status) {
+                if (404 === (res === null || res === void 0 ? void 0 : res.status)) {
                     return null;
                 }
                 throw e;
@@ -102,7 +104,70 @@ function BudProvider(options) {
             catch (e) {
                 // console.log('LOAD CONNECT ERR', e)
                 let res = (_a = e.provider) === null || _a === void 0 ? void 0 : _a.response;
-                if (404 === res.status) {
+                if (404 === (res === null || res === void 0 ? void 0 : res.status)) {
+                    return null;
+                }
+                throw e;
+            }
+        };
+    entity.account.cmd.load.action =
+        async function (entize, msg) {
+            var _a;
+            let q = msg.q || {};
+            let id = q.id;
+            let customerid = q.customerid;
+            let customersecret = q.customersecret;
+            try {
+                let headers = {
+                    'X-Customer-Id': customerid,
+                    'X-Customer-Secret': customersecret,
+                };
+                let json = await get(makeUrl('financial/v2/accounts/', id), {
+                    headers
+                });
+                // console.log('LOAD CONNECT JSON', json)
+                let entdata = json.data;
+                entdata.id = id;
+                return entize(entdata);
+            }
+            catch (e) {
+                // console.log('LOAD CONNECT ERR', e)
+                let res = (_a = e.provider) === null || _a === void 0 ? void 0 : _a.response;
+                if (404 === (res === null || res === void 0 ? void 0 : res.status)) {
+                    return null;
+                }
+                throw e;
+            }
+        };
+    entity.account.cmd.list.action =
+        async function (entize, msg) {
+            var _a;
+            let q = msg.q || {};
+            let customerid = q.customerid;
+            let customersecret = q.customersecret;
+            delete q.customerid;
+            delete q.customersecret;
+            try {
+                let headers = {
+                    'X-Customer-Id': customerid,
+                    'X-Customer-Secret': customersecret,
+                };
+                let json = await get(makeUrl('financial/v2/accounts', q), {
+                    headers
+                });
+                // console.log('LOAD CONNECT JSON', json)
+                let listdata = json.data;
+                let list = listdata.map((entry) => {
+                    let ent = entize(entry);
+                    ent.id = ent.account_id;
+                    return ent;
+                });
+                return list;
+            }
+            catch (e) {
+                console.log('LIST ACCOUNT ERR', e);
+                let res = (_a = e.provider) === null || _a === void 0 ? void 0 : _a.response;
+                if (404 === (res === null || res === void 0 ? void 0 : res.status)) {
                     return null;
                 }
                 throw e;
