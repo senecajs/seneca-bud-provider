@@ -66,6 +66,7 @@ function BudProvider(this: any, options: BudProviderOptions) {
     customer: { cmd: { load: {}, save: {} } },
     connection: { cmd: { load: {} } },
     account: { cmd: { load: {}, list: {} } },
+    obp: { cmd: { list: {} } },
   }
 
 
@@ -229,6 +230,24 @@ function BudProvider(this: any, options: BudProviderOptions) {
       }
     }
 
+
+  entity.obp.cmd.list.action =
+    async function(this: any, entize: any, msg: any) {
+      let q = msg.q || {}
+
+      try {
+        let json = await get(makeUrl('v1/open-banking/providers'), q)
+        let entlist = json.data
+        entlist = entlist.map((entdata: any) => {
+          entdata.id = entdata.provider
+          return entize(entdata)
+        })
+        return entlist
+      }
+      catch (e: any) {
+        throw e
+      }
+    }
 
 
   entityBuilder(this, {

@@ -37,6 +37,17 @@ describe('bud-provider', () => {
     await SenecaMsgTest(seneca, BasicMessages)()
   })
 
+  
+  test('obp-list', async () => {
+    if (null == Config) return;
+
+    const seneca = await makeSeneca()
+    const list = await seneca.entity("provider/bud/obp").list$()
+
+    // console.log(list)
+
+    expect(list.length > 0).toBeTruthy()
+  })
 
   
   test('maintain', async () => {

@@ -82,6 +82,7 @@ $ npm install @seneca/bud-provider @seneca/env
 ## Action Patterns
 
 * ["sys":"entity","base":"bud","cmd":"list","name":"account","zone":"provider"](#-sysentitybasebudcmdlistnameaccountzoneprovider-)
+* ["sys":"entity","base":"bud","cmd":"list","name":"obp","zone":"provider"](#-sysentitybasebudcmdlistnameobpzoneprovider-)
 * ["sys":"entity","base":"bud","cmd":"load","name":"account","zone":"provider"](#-sysentitybasebudcmdloadnameaccountzoneprovider-)
 * ["sys":"entity","base":"bud","cmd":"load","name":"connection","zone":"provider"](#-sysentitybasebudcmdloadnameconnectionzoneprovider-)
 * ["sys":"entity","base":"bud","cmd":"load","name":"customer","zone":"provider"](#-sysentitybasebudcmdloadnamecustomerzoneprovider-)
@@ -97,6 +98,13 @@ $ npm install @seneca/bud-provider @seneca/env
 ## Action Descriptions
 
 ### &laquo; `"sys":"entity","base":"bud","cmd":"list","name":"account","zone":"provider"` &raquo;
+
+No description provided.
+
+
+
+----------
+### &laquo; `"sys":"entity","base":"bud","cmd":"list","name":"obp","zone":"provider"` &raquo;
 
 No description provided.
 
