@@ -21,7 +21,7 @@ function BudProvider(options) {
             }
         }
     });
-    console.log('makeUtils', 'get', get);
+    // console.log('makeUtils', 'get', get)
     seneca.message('sys:provider,provider:bud,get:info', get_info);
     async function get_info(_msg) {
         return {
@@ -37,6 +37,8 @@ function BudProvider(options) {
         customer: { cmd: { load: {}, save: {} } },
         connection: { cmd: { load: {} } },
         account: { cmd: { load: {}, list: {} } },
+        transaction: { cmd: { list: {} } },
+        // Open Banking Providers (banks and other institutions)
         obp: { cmd: { list: {} } },
     };
     entity.customer.cmd.load.action =
@@ -166,8 +168,54 @@ function BudProvider(options) {
                 return list;
             }
             catch (e) {
-                console.log('LIST ACCOUNT ERR', e);
+                // console.log('LIST ACCOUNT ERR', e)
                 let res = (_a = e.provider) === null || _a === void 0 ? void 0 : _a.response;
+                if (404 === (res === null || res === void 0 ? void 0 : res.status)) {
+                    return null;
+                }
+                throw e;
+            }
+        };
+    entity.transaction.cmd.list.action =
+        async function (entize, msg) {
+            var _a, _b;
+            let q = msg.q || {};
+            let customerid = q.customerid;
+            let customersecret = q.customersecret;
+            delete q.customerid;
+            delete q.customersecret;
+            try {
+                let headers = {
+                    'X-Customer-Id': customerid,
+                    'X-Customer-Secret': customersecret,
+                };
+                let listdata = [];
+                let paging = true;
+                let pI = 0;
+                let nextPageToken = null;
+                const maxPages = 1111;
+                while (paging && pI < maxPages) {
+                    let json = await get(makeUrl('financial/v2/transactions', q), {
+                        headers
+                    });
+                    // console.log('LIST TX JSON', pI, json.data.length, json.data[0])
+                    listdata = listdata.concat(json.data);
+                    pI++;
+                    nextPageToken = (_a = json.metadata) === null || _a === void 0 ? void 0 : _a.next_page_token;
+                    if (null == nextPageToken) {
+                        paging = false;
+                    }
+                }
+                let list = listdata.map((entry) => {
+                    let ent = entize(entry);
+                    ent.id = ent.account_id;
+                    return ent;
+                });
+                return list;
+            }
+            catch (e) {
+                console.log('LIST TX ERR', e);
+                let res = (_b = e.provider) === null || _b === void 0 ? void 0 : _b.response;
                 if (404 === (res === null || res === void 0 ? void 0 : res.status)) {
                     return null;
                 }
@@ -231,7 +279,8 @@ function BudProvider(options) {
                     };
                     // console.log('GET REFRESH', refreshConfig)
                     let refreshResult = await origFetcher(options.url + 'v1/oauth/token', refreshConfig);
-                    // console.log('REFRESH RES', refreshConfig, refreshResult)
+                    options.debug &&
+                        console.log('REFRESH RESULT', refreshConfig, refreshResult);
                     let refreshJSON = await refreshResult.json();
                     // console.log('REFRESH JSON', refreshJSON)
                     // TODO: don't store here
@@ -273,7 +322,7 @@ function BudProvider(options) {
                 }
             }
             catch (e) {
-                console.log('RETRY', e);
+                // console.log('RETRY', e)
                 throw e;
             }
         }

@@ -46,7 +46,7 @@ function BudProvider(this: any, options: BudProviderOptions) {
   })
 
 
-  console.log('makeUtils', 'get', get)
+  // console.log('makeUtils', 'get', get)
 
   seneca.message('sys:provider,provider:bud,get:info', get_info)
 
@@ -66,6 +66,9 @@ function BudProvider(this: any, options: BudProviderOptions) {
     customer: { cmd: { load: {}, save: {} } },
     connection: { cmd: { load: {} } },
     account: { cmd: { load: {}, list: {} } },
+    transaction: { cmd: { list: {} } },
+
+    // Open Banking Providers (banks and other institutions)
     obp: { cmd: { list: {} } },
   }
 
@@ -219,7 +222,66 @@ function BudProvider(this: any, options: BudProviderOptions) {
         return list
       }
       catch (e: any) {
-        console.log('LIST ACCOUNT ERR', e)
+        // console.log('LIST ACCOUNT ERR', e)
+        let res = e.provider?.response
+
+        if (404 === res?.status) {
+          return null
+        }
+
+        throw e
+      }
+    }
+
+
+
+  entity.transaction.cmd.list.action =
+    async function(this: any, entize: any, msg: any) {
+      let q = msg.q || {}
+      let customerid = q.customerid
+      let customersecret = q.customersecret
+
+      delete q.customerid
+      delete q.customersecret
+
+      try {
+        let headers = {
+          'X-Customer-Id': customerid,
+          'X-Customer-Secret': customersecret,
+        }
+
+        let listdata: any[] = []
+        let paging = true
+        let pI = 0
+        let nextPageToken: string | null | undefined = null
+        const maxPages = 1111
+
+        while (paging && pI < maxPages) {
+          let json = await get(makeUrl('financial/v2/transactions', q), {
+            headers
+          })
+
+          // console.log('LIST TX JSON', pI, json.data.length, json.data[0])
+          listdata = listdata.concat(json.data)
+
+          pI++
+
+          nextPageToken = json.metadata?.next_page_token
+
+          if (null == nextPageToken) {
+            paging = false
+          }
+        }
+
+        let list = listdata.map((entry: any) => {
+          let ent = entize(entry)
+          ent.id = ent.account_id
+          return ent
+        })
+        return list
+      }
+      catch (e: any) {
+        console.log('LIST TX ERR', e)
         let res = e.provider?.response
 
         if (404 === res?.status) {
@@ -307,7 +369,8 @@ function BudProvider(this: any, options: BudProviderOptions) {
           let refreshResult =
             await origFetcher(options.url + 'v1/oauth/token', refreshConfig)
 
-          // console.log('REFRESH RES', refreshConfig, refreshResult)
+          options.debug &&
+            console.log('REFRESH RESULT', refreshConfig, refreshResult)
 
           let refreshJSON = await refreshResult.json()
           // console.log('REFRESH JSON', refreshJSON)
@@ -365,7 +428,7 @@ function BudProvider(this: any, options: BudProviderOptions) {
         }
       }
       catch (e) {
-        console.log('RETRY', e)
+        // console.log('RETRY', e)
         throw e
       }
     }

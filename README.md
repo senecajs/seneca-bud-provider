@@ -83,6 +83,7 @@ $ npm install @seneca/bud-provider @seneca/env
 
 * ["sys":"entity","base":"bud","cmd":"list","name":"account","zone":"provider"](#-sysentitybasebudcmdlistnameaccountzoneprovider-)
 * ["sys":"entity","base":"bud","cmd":"list","name":"obp","zone":"provider"](#-sysentitybasebudcmdlistnameobpzoneprovider-)
+* ["sys":"entity","base":"bud","cmd":"list","name":"transaction","zone":"provider"](#-sysentitybasebudcmdlistnametransactionzoneprovider-)
 * ["sys":"entity","base":"bud","cmd":"load","name":"account","zone":"provider"](#-sysentitybasebudcmdloadnameaccountzoneprovider-)
 * ["sys":"entity","base":"bud","cmd":"load","name":"connection","zone":"provider"](#-sysentitybasebudcmdloadnameconnectionzoneprovider-)
 * ["sys":"entity","base":"bud","cmd":"load","name":"customer","zone":"provider"](#-sysentitybasebudcmdloadnamecustomerzoneprovider-)
@@ -105,6 +106,13 @@ No description provided.
 
 ----------
 ### &laquo; `"sys":"entity","base":"bud","cmd":"list","name":"obp","zone":"provider"` &raquo;
+
+No description provided.
+
+
+
+----------
+### &laquo; `"sys":"entity","base":"bud","cmd":"list","name":"transaction","zone":"provider"` &raquo;
 
 No description provided.
 

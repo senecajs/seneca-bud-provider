@@ -80,6 +80,8 @@ async function makeSeneca() {
           },
         })
         .use(BudProvider,{
+          // debug: true,
+          url: 'https://api-sandbox.thisisbud.com/',
           entity: {
             customer: {
               save: {
