@@ -382,25 +382,30 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   async function retryOn(attempt: number, _error: any, response: any) {
     const mark = Math.random()
     console.log('RETRY start', mark, attempt,
-      response.status, response.statusText,
+      response?.status, response?.statusText,
       tokenState, null == refreshToken)
 
-
     if (4 <= attempt) {
-      console.log('RETRY attempt', mark, attempt, response.status,
+      console.log('RETRY attempt', mark, attempt, response?.status,
         tokenState, null == refreshToken)
       return false
     }
 
     if (500 <= response.status && attempt <= 3) {
-      console.log('RETRY 500', mark, attempt, response.status, tokenState, null == refreshToken)
+      console.log('RETRY 500', mark, attempt, response?.status, tokenState, null == refreshToken)
       return true
     }
 
     if (401 === response.status) {
-      console.log('RETRY 401', mark, attempt, response.status, tokenState, null == refreshToken)
+      console.log('RETRY 401', mark, attempt, response?.status, tokenState, null == refreshToken)
+
+      // Try to refresh the access token first.
+      if ('active' === tokenState) {
+        tokenState = 'refresh'
+      }
+
       try {
-        if ('start' === tokenState || 'active' === tokenState) {
+        if ('start' === tokenState) {
           tokenState = 'request'
 
           console.log('RETRY REFRESH', mark, attempt, response.status,
@@ -497,6 +502,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
         }
       }
       catch (e) {
+        tokenState = 'start'
         console.log('RETRY ERROR', mark, e)
         throw e
       }

@@ -50,6 +50,33 @@ describe('bud-provider', () => {
   })
 
 
+
+  test('token-refresh', async () => {
+    if (null == Config) return;
+
+    const seneca = await makeSeneca()
+    let list = await seneca.entity("provider/bud/obp").list$()
+    expect(list.length > 0).toBeTruthy()
+    console.log('LIST LEN A', list.length)
+    
+    const setToken = seneca.export('BudProvider/setToken')
+    setToken('access','bad')
+    
+    list = await seneca.entity("provider/bud/obp").list$()
+    expect(list.length > 0).toBeTruthy()
+    console.log('LIST LEN B', list.length)
+
+    setToken('refresh','bad')
+    setToken('access','bad')
+
+    list = await seneca.entity("provider/bud/obp").list$()
+    expect(list.length > 0).toBeTruthy()
+    console.log('LIST LEN C', list.length)
+
+  }, 11111)
+
+
+  
   test('txdown', async () => {
     if (null == Config) return;
 
