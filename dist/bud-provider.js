@@ -1,14 +1,25 @@
 "use strict";
-/* Copyright © 2022 Seneca Project Contributors, MIT License. */
+/* Copyright © 2022-2023 Seneca Project Contributors, MIT License. */
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-const Pkg = require('../package.json');
+const package_json_1 = __importDefault(require("../package.json"));
 function BudProvider(options) {
     const seneca = this;
+    const { Gubu } = seneca.util;
+    const { Open } = Gubu;
+    const CustomerQueryShape = Gubu(Open({
+        customerid: String,
+        customersecret: String,
+    }));
     // Shared config reference.
     const config = {
         headers: {}
     };
     let refreshToken;
+    let accessToken;
+    let tokenState = 'start';
     const makeUtils = this.export('provider/makeUtils');
     const { makeUrl, get, post, entityBuilder, origFetcher, asyncLocalStorage, } = makeUtils({
         name: 'bud',
@@ -27,7 +38,7 @@ function BudProvider(options) {
         return {
             ok: true,
             name: 'bud',
-            version: Pkg.version,
+            version: package_json_1.default.version,
             sdk: {
                 name: 'bud',
             },
@@ -44,7 +55,7 @@ function BudProvider(options) {
     entity.customer.cmd.load.action =
         async function (entize, msg) {
             var _a;
-            let q = msg.q || {};
+            let q = { ...(msg.q || {}) };
             let id = q.id;
             try {
                 let json = await get(makeUrl('v1/customers', id, 'context'));
@@ -89,7 +100,7 @@ function BudProvider(options) {
     entity.connection.cmd.load.action =
         async function (entize, msg) {
             var _a;
-            let q = msg.q || {};
+            let q = { ...(msg.q || {}) };
             let id = q.id;
             let customerid = q.customerid;
             try {
@@ -116,7 +127,7 @@ function BudProvider(options) {
     entity.account.cmd.load.action =
         async function (entize, msg) {
             var _a;
-            let q = msg.q || {};
+            let q = CustomerQueryShape({ ...(msg.q || {}) });
             let id = q.id;
             let customerid = q.customerid;
             let customersecret = q.customersecret;
@@ -125,6 +136,7 @@ function BudProvider(options) {
                     'X-Customer-Id': customerid,
                     'X-Customer-Secret': customersecret,
                 };
+                await waitForRefreshToken();
                 let json = await get(makeUrl('financial/v2/accounts/', id), {
                     headers
                 });
@@ -145,7 +157,7 @@ function BudProvider(options) {
     entity.account.cmd.list.action =
         async function (entize, msg) {
             var _a;
-            let q = msg.q || {};
+            let q = CustomerQueryShape({ ...(msg.q || {}) });
             let customerid = q.customerid;
             let customersecret = q.customersecret;
             delete q.customerid;
@@ -155,6 +167,7 @@ function BudProvider(options) {
                     'X-Customer-Id': customerid,
                     'X-Customer-Secret': customersecret,
                 };
+                await waitForRefreshToken();
                 let json = await get(makeUrl('financial/v2/accounts', q), {
                     headers
                 });
@@ -179,7 +192,7 @@ function BudProvider(options) {
     entity.transaction.cmd.list.action =
         async function (entize, msg) {
             var _a, _b;
-            let q = msg.q || {};
+            let q = CustomerQueryShape({ ...(msg.q || {}) });
             let customerid = q.customerid;
             let customersecret = q.customersecret;
             delete q.customerid;
@@ -194,10 +207,13 @@ function BudProvider(options) {
                 let pI = 0;
                 let nextPageToken = null;
                 const maxPages = 1111;
+                console.log('LIST REQ', q, headers);
+                await waitForRefreshToken();
                 while (paging && pI < maxPages) {
                     let json = await get(makeUrl('financial/v2/transactions', q), {
                         headers
                     });
+                    console.log('LIST RES', json.data.length);
                     // console.log('LIST TX JSON', pI, json.data.length, json.data[0])
                     listdata = listdata.concat(json.data);
                     pI++;
@@ -224,7 +240,7 @@ function BudProvider(options) {
         };
     entity.obp.cmd.list.action =
         async function (entize, msg) {
-            let q = msg.q || {};
+            let q = { ...(msg.q || {}) };
             try {
                 let json = await get(makeUrl('v1/open-banking/providers'), q);
                 let entlist = json.data;
@@ -261,14 +277,19 @@ function BudProvider(options) {
     }
     async function retryOn(attempt, _error, response) {
         if (4 <= attempt) {
+            console.log('RETRY attempt', attempt, response.status, refreshToken);
             return false;
         }
         if (500 <= response.status && attempt <= 3) {
+            console.log('RETRY 500', attempt, response.status);
             return true;
         }
         if (401 === response.status) {
+            console.log('RETRY 401', attempt, response.status);
             try {
-                if (null == refreshToken) {
+                if ('start' === tokenState || 'active' === tokenState) {
+                    tokenState = 'request';
+                    console.log('RETRY REFRESH', attempt, response.status);
                     let refreshConfig = {
                         method: 'POST',
                         headers: {
@@ -279,6 +300,10 @@ function BudProvider(options) {
                     };
                     // console.log('GET REFRESH', refreshConfig)
                     let refreshResult = await origFetcher(options.url + 'v1/oauth/token', refreshConfig);
+                    if (200 !== refreshResult.status) {
+                        console.log('REFRESH TOKEN FAIL', refreshConfig, refreshResult);
+                        throw new Error('bud-provider: refresh-token: status:' + refreshResult.status);
+                    }
                     options.debug &&
                         console.log('REFRESH RESULT', refreshConfig, refreshResult);
                     let refreshJSON = await refreshResult.json();
@@ -286,9 +311,13 @@ function BudProvider(options) {
                     // TODO: don't store here
                     refreshToken = refreshJSON.data.refresh_token;
                     // console.log('REFRESH TOKEN', refreshToken)
+                    if (null != refreshToken) {
+                        tokenState = 'refresh';
+                    }
                     return true;
                 }
-                else {
+                else if ('refresh' === tokenState) {
+                    console.log('RETRY ACCESS', attempt, response.status);
                     // console.log('GET ACCESS', config.headers)
                     let accessConfig = {
                         method: 'POST',
@@ -304,11 +333,16 @@ function BudProvider(options) {
                     // console.log('access res', accessResult.status)
                     if (401 === accessResult.status) {
                         refreshToken = null;
+                        tokenState = 'start';
                         return true;
+                    }
+                    else if (200 !== accessResult.status) {
+                        console.log('ACCESS TOKEN FAIL', accessConfig, accessResult);
+                        throw new Error('bud-provider: access-token: status:' + accessResult.status);
                     }
                     let accessJSON = await accessResult.json();
                     // console.log('ACCESS JSON', accessJSON)
-                    let accessToken = accessJSON.data.access_token;
+                    accessToken = accessJSON.data.access_token;
                     let store = asyncLocalStorage.getStore();
                     // console.log('store', store)
                     let currentConfig = store.config;
@@ -318,11 +352,12 @@ function BudProvider(options) {
                     currentConfig.headers['X-Client-Id'] = seneca.shared.clientid;
                     config.headers['X-Client-Id'] = seneca.shared.clientid;
                     // console.log('store end', store)
+                    tokenState = 'active';
                     return true;
                 }
             }
             catch (e) {
-                // console.log('RETRY', e)
+                console.log('RETRY ERROR', e);
                 throw e;
             }
         }
@@ -340,11 +375,37 @@ function BudProvider(options) {
             Authorization: 'Basic ' + auth
         };
     });
+    async function waitForRefreshToken() {
+        if ('request' === tokenState || 'refresh' === tokenState) {
+            let start = Date.now();
+            for (let i = 0; ('request' === tokenState || 'refresh' === tokenState) &&
+                i < 1111 &&
+                ((Date.now() - start) < options.wait.refresh.max); i++) {
+                await new Promise((r) => setTimeout(r, options.wait.refresh.interval));
+            }
+            if ('request' === tokenState || 'refresh' === tokenState || null == refreshToken) {
+                throw new Error('bud-provider: token-not-available: state:' + tokenState);
+            }
+        }
+    }
     return {
         exports: {
             getGateway,
-            sdk: () => null
-        },
+            sdk: () => null,
+            getToken: (name) => {
+                return 'refresh' === name ? refreshToken : 'access' === name ? accessToken : null;
+            },
+            setToken: (name, value) => {
+                if ('refresh' === name) {
+                    refreshToken = value;
+                }
+                else if ('access' === name) {
+                    accessToken = value;
+                    config.headers['Authorization'] = 'Bearer ' + value;
+                    console.log('SET ACCESS', value);
+                }
+            }
+        }
     };
 }
 // Default options.
@@ -361,7 +422,13 @@ const defaults = {
             retryDelay: 100,
         }
     },
-    entity: {}
+    entity: {},
+    wait: {
+        refresh: {
+            max: 11111,
+            interval: 111,
+        }
+    }
 };
 Object.assign(BudProvider, { defaults });
 exports.default = BudProvider;

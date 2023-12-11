@@ -1,9 +1,10 @@
-/* Copyright © 2022 Seneca Project Contributors, MIT License. */
-
-const Pkg = require('../package.json')
+/* Copyright © 2022-2023 Seneca Project Contributors, MIT License. */
 
 
-type BudProviderOptions = {
+import Pkg from '../package.json'
+
+
+type FullBudProviderOptions = {
   url: string
   fetch: any
   debug: boolean
@@ -11,11 +12,28 @@ type BudProviderOptions = {
   retry: {
     config: Record<string, any>
   }
+  wait: {
+    refresh: {
+      max: number,
+      interval: number,
+    }
+  }
 }
 
+type BudProviderOptions = Partial<FullBudProviderOptions>
 
-function BudProvider(this: any, options: BudProviderOptions) {
+
+function BudProvider(this: any, options: FullBudProviderOptions) {
   const seneca: any = this
+
+  const { Gubu } = seneca.util
+  const { Open } = Gubu
+
+  const CustomerQueryShape = Gubu(Open({
+    customerid: String,
+    customersecret: String,
+  }))
+
 
   // Shared config reference.
   const config: any = {
@@ -23,6 +41,8 @@ function BudProvider(this: any, options: BudProviderOptions) {
   }
 
   let refreshToken: any
+  let accessToken: any
+  let tokenState: 'start' | 'request' | 'refresh' | 'active' = 'start'
 
   const makeUtils = this.export('provider/makeUtils')
 
@@ -75,7 +95,7 @@ function BudProvider(this: any, options: BudProviderOptions) {
 
   entity.customer.cmd.load.action =
     async function(this: any, entize: any, msg: any) {
-      let q = msg.q || {}
+      let q = { ...(msg.q || {}) }
       let id = q.id
 
       try {
@@ -127,7 +147,7 @@ function BudProvider(this: any, options: BudProviderOptions) {
 
   entity.connection.cmd.load.action =
     async function(this: any, entize: any, msg: any) {
-      let q = msg.q || {}
+      let q = { ...(msg.q || {}) }
       let id = q.id
       let customerid = q.customerid
 
@@ -160,7 +180,7 @@ function BudProvider(this: any, options: BudProviderOptions) {
 
   entity.account.cmd.load.action =
     async function(this: any, entize: any, msg: any) {
-      let q = msg.q || {}
+      let q = CustomerQueryShape({ ...(msg.q || {}) })
       let id = q.id
       let customerid = q.customerid
       let customersecret = q.customersecret
@@ -170,6 +190,8 @@ function BudProvider(this: any, options: BudProviderOptions) {
           'X-Customer-Id': customerid,
           'X-Customer-Secret': customersecret,
         }
+
+        await waitForRefreshToken()
 
         let json = await get(makeUrl('financial/v2/accounts/', id), {
           headers
@@ -195,7 +217,7 @@ function BudProvider(this: any, options: BudProviderOptions) {
 
   entity.account.cmd.list.action =
     async function(this: any, entize: any, msg: any) {
-      let q = msg.q || {}
+      let q = CustomerQueryShape({ ...(msg.q || {}) })
       let customerid = q.customerid
       let customersecret = q.customersecret
 
@@ -207,6 +229,8 @@ function BudProvider(this: any, options: BudProviderOptions) {
           'X-Customer-Id': customerid,
           'X-Customer-Secret': customersecret,
         }
+
+        await waitForRefreshToken()
 
         let json = await get(makeUrl('financial/v2/accounts', q), {
           headers
@@ -237,7 +261,7 @@ function BudProvider(this: any, options: BudProviderOptions) {
 
   entity.transaction.cmd.list.action =
     async function(this: any, entize: any, msg: any) {
-      let q = msg.q || {}
+      let q = CustomerQueryShape({ ...(msg.q || {}) })
       let customerid = q.customerid
       let customersecret = q.customersecret
 
@@ -256,10 +280,16 @@ function BudProvider(this: any, options: BudProviderOptions) {
         let nextPageToken: string | null | undefined = null
         const maxPages = 1111
 
+        console.log('LIST REQ', q, headers)
+
+        await waitForRefreshToken()
+
         while (paging && pI < maxPages) {
           let json = await get(makeUrl('financial/v2/transactions', q), {
             headers
           })
+
+          console.log('LIST RES', json.data.length)
 
           // console.log('LIST TX JSON', pI, json.data.length, json.data[0])
           listdata = listdata.concat(json.data)
@@ -295,7 +325,7 @@ function BudProvider(this: any, options: BudProviderOptions) {
 
   entity.obp.cmd.list.action =
     async function(this: any, entize: any, msg: any) {
-      let q = msg.q || {}
+      let q = { ...(msg.q || {}) }
 
       try {
         let json = await get(makeUrl('v1/open-banking/providers'), q)
@@ -345,16 +375,23 @@ function BudProvider(this: any, options: BudProviderOptions) {
 
   async function retryOn(attempt: number, _error: any, response: any) {
     if (4 <= attempt) {
+      console.log('RETRY attempt', attempt, response.status, refreshToken)
       return false
     }
 
     if (500 <= response.status && attempt <= 3) {
+      console.log('RETRY 500', attempt, response.status)
       return true
     }
 
     if (401 === response.status) {
+      console.log('RETRY 401', attempt, response.status)
       try {
-        if (null == refreshToken) {
+        if ('start' === tokenState || 'active' === tokenState) {
+          tokenState = 'request'
+
+          console.log('RETRY REFRESH', attempt, response.status)
+
           let refreshConfig = {
             method: 'POST',
             headers: {
@@ -369,6 +406,11 @@ function BudProvider(this: any, options: BudProviderOptions) {
           let refreshResult =
             await origFetcher(options.url + 'v1/oauth/token', refreshConfig)
 
+          if (200 !== refreshResult.status) {
+            console.log('REFRESH TOKEN FAIL', refreshConfig, refreshResult)
+            throw new Error('bud-provider: refresh-token: status:' + refreshResult.status)
+          }
+
           options.debug &&
             console.log('REFRESH RESULT', refreshConfig, refreshResult)
 
@@ -380,9 +422,14 @@ function BudProvider(this: any, options: BudProviderOptions) {
 
           // console.log('REFRESH TOKEN', refreshToken)
 
+          if (null != refreshToken) {
+            tokenState = 'refresh'
+          }
+
           return true
         }
-        else {
+        else if ('refresh' === tokenState) {
+          console.log('RETRY ACCESS', attempt, response.status)
           // console.log('GET ACCESS', config.headers)
 
           let accessConfig = {
@@ -402,13 +449,18 @@ function BudProvider(this: any, options: BudProviderOptions) {
           // console.log('access res', accessResult.status)
           if (401 === accessResult.status) {
             refreshToken = null
+            tokenState = 'start'
             return true
+          }
+          else if (200 !== accessResult.status) {
+            console.log('ACCESS TOKEN FAIL', accessConfig, accessResult)
+            throw new Error('bud-provider: access-token: status:' + accessResult.status)
           }
 
           let accessJSON = await accessResult.json()
           // console.log('ACCESS JSON', accessJSON)
 
-          let accessToken = accessJSON.data.access_token
+          accessToken = accessJSON.data.access_token
 
           let store = asyncLocalStorage.getStore()
           // console.log('store', store)
@@ -424,11 +476,13 @@ function BudProvider(this: any, options: BudProviderOptions) {
 
           // console.log('store end', store)
 
+          tokenState = 'active'
+
           return true
         }
       }
       catch (e) {
-        // console.log('RETRY', e)
+        console.log('RETRY ERROR', e)
         throw e
       }
     }
@@ -458,11 +512,45 @@ function BudProvider(this: any, options: BudProviderOptions) {
 
   })
 
+
+  async function waitForRefreshToken() {
+    if ('request' === tokenState || 'refresh' === tokenState) {
+      let start = Date.now()
+      for (
+        let i = 0;
+        ('request' === tokenState || 'refresh' === tokenState) &&
+        i < 1111 &&
+        ((Date.now() - start) < options.wait.refresh.max);
+        i++
+      ) {
+        await new Promise((r) => setTimeout(r, options.wait.refresh.interval))
+      }
+      if ('request' === tokenState || 'refresh' === tokenState || null == refreshToken) {
+        throw new Error('bud-provider: token-not-available: state:' + tokenState)
+      }
+    }
+  }
+
+
   return {
     exports: {
       getGateway,
-      sdk: () => null
-    },
+      sdk: () => null,
+      getToken: (name: string) => {
+        return 'refresh' === name ? refreshToken : 'access' === name ? accessToken : null
+      },
+      setToken: (name: string, value: string) => {
+        if ('refresh' === name) {
+          refreshToken = value
+        }
+        else if ('access' === name) {
+          accessToken = value
+          config.headers['Authorization'] = 'Bearer ' + value
+
+          console.log('SET ACCESS', value)
+        }
+      }
+    }
   }
 }
 
@@ -486,7 +574,14 @@ const defaults: BudProviderOptions = {
     }
   },
 
-  entity: {}
+  entity: {},
+
+  wait: {
+    refresh: {
+      max: 11111,
+      interval: 111,
+    }
+  }
 }
 
 Object.assign(BudProvider, { defaults })

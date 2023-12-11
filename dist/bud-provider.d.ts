@@ -1,4 +1,4 @@
-type BudProviderOptions = {
+type FullBudProviderOptions = {
     url: string;
     fetch: any;
     debug: boolean;
@@ -6,8 +6,14 @@ type BudProviderOptions = {
     retry: {
         config: Record<string, any>;
     };
+    wait: {
+        refresh: {
+            max: number;
+            interval: number;
+        };
+    };
 };
-declare function BudProvider(this: any, options: BudProviderOptions): {
+declare function BudProvider(this: any, options: FullBudProviderOptions): {
     exports: {
         getGateway: (spec: {
             redirect_url: string;
@@ -16,6 +22,8 @@ declare function BudProvider(this: any, options: BudProviderOptions): {
             customersecret: string;
         }) => Promise<any>;
         sdk: () => null;
+        getToken: (name: string) => any;
+        setToken: (name: string, value: string) => void;
     };
 };
 export default BudProvider;
