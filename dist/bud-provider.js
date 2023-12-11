@@ -19,7 +19,7 @@ function BudProvider(options) {
     };
     let refreshToken;
     let accessToken;
-    let tokenState = 'start';
+    let tokenState = 'init';
     const makeUtils = this.export('provider/makeUtils');
     const { makeUrl, get, post, entityBuilder, origFetcher, asyncLocalStorage, } = makeUtils({
         name: 'bud',
@@ -58,6 +58,7 @@ function BudProvider(options) {
             let q = { ...(msg.q || {}) };
             let id = q.id;
             try {
+                await waitForRefreshToken();
                 let json = await get(makeUrl('v1/customers', id, 'context'));
                 // console.log('LOAD CUSTOMER JSON', json)
                 let entdata = json.data;
@@ -83,6 +84,7 @@ function BudProvider(options) {
                         ...(msg.ent.data$(false)),
                     }
                 };
+                await waitForRefreshToken();
                 let json = await post(makeUrl('platform/v3/customers'), {
                     body
                 });
@@ -242,6 +244,7 @@ function BudProvider(options) {
         async function (entize, msg) {
             let q = { ...(msg.q || {}) };
             try {
+                await waitForRefreshToken();
                 let json = await get(makeUrl('v1/open-banking/providers'), q);
                 let entlist = json.data;
                 entlist = entlist.map((entdata) => {
@@ -300,14 +303,14 @@ function BudProvider(options) {
                         },
                         body: 'grant_type=client_credentials'
                     };
-                    // console.log('GET REFRESH', refreshConfig)
+                    console.log('GET REFRESH', mark, refreshConfig);
                     let refreshResult = await origFetcher(options.url + 'v1/oauth/token', refreshConfig);
                     if (200 !== refreshResult.status) {
                         console.log('REFRESH TOKEN FAIL', refreshConfig, refreshResult);
                         throw new Error('bud-provider: refresh-token: status:' + refreshResult.status);
                     }
                     options.debug &&
-                        console.log('REFRESH RESULT', refreshConfig, refreshResult);
+                        console.log('REFRESH RESULT', mark, refreshConfig, refreshResult);
                     let refreshJSON = await refreshResult.json();
                     // console.log('REFRESH JSON', refreshJSON)
                     // TODO: don't store here
@@ -359,7 +362,7 @@ function BudProvider(options) {
                 }
             }
             catch (e) {
-                console.log('RETRY ERROR', e);
+                console.log('RETRY ERROR', mark, e);
                 throw e;
             }
         }
@@ -378,14 +381,20 @@ function BudProvider(options) {
         };
     });
     async function waitForRefreshToken() {
-        if ('request' === tokenState || 'refresh' === tokenState) {
-            let start = Date.now();
-            for (let i = 0; ('request' === tokenState || 'refresh' === tokenState) &&
+        if ('init' === tokenState) {
+            tokenState = 'start';
+            return;
+        }
+        if ('active' !== tokenState) {
+            let start = Date.now(), i = 0, mark = Math.random();
+            console.log('waitForRefreshToken', tokenState, mark);
+            for (; ('active' !== tokenState) &&
                 i < 1111 &&
                 ((Date.now() - start) < options.wait.refresh.max); i++) {
                 await new Promise((r) => setTimeout(r, options.wait.refresh.interval));
             }
-            if ('request' === tokenState || 'refresh' === tokenState || null == refreshToken) {
+            console.log('waitForRefreshToken', tokenState, mark, i, Date.now() - start);
+            if ('active' === tokenState || null == refreshToken) {
                 throw new Error('bud-provider: token-not-available: state:' + tokenState);
             }
         }

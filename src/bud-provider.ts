@@ -42,7 +42,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
 
   let refreshToken: any
   let accessToken: any
-  let tokenState: 'start' | 'request' | 'refresh' | 'active' = 'start'
+  let tokenState: 'init' | 'start' | 'request' | 'refresh' | 'active' = 'init'
 
   const makeUtils = this.export('provider/makeUtils')
 
@@ -99,6 +99,8 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       let id = q.id
 
       try {
+        await waitForRefreshToken()
+
         let json = await get(makeUrl('v1/customers', id, 'context'))
         // console.log('LOAD CUSTOMER JSON', json)
         let entdata = json.data
@@ -126,6 +128,8 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
             ...(msg.ent.data$(false)),
           }
         }
+
+        await waitForRefreshToken()
 
         let json = await post(makeUrl('platform/v3/customers'), {
           body
@@ -328,6 +332,8 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       let q = { ...(msg.q || {}) }
 
       try {
+        await waitForRefreshToken()
+
         let json = await get(makeUrl('v1/open-banking/providers'), q)
         let entlist = json.data
         entlist = entlist.map((entdata: any) => {
@@ -409,7 +415,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
             body: 'grant_type=client_credentials'
           }
 
-          // console.log('GET REFRESH', refreshConfig)
+          console.log('GET REFRESH', mark, refreshConfig)
 
           let refreshResult =
             await origFetcher(options.url + 'v1/oauth/token', refreshConfig)
@@ -420,7 +426,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           }
 
           options.debug &&
-            console.log('REFRESH RESULT', refreshConfig, refreshResult)
+            console.log('REFRESH RESULT', mark, refreshConfig, refreshResult)
 
           let refreshJSON = await refreshResult.json()
           // console.log('REFRESH JSON', refreshJSON)
@@ -491,7 +497,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
         }
       }
       catch (e) {
-        console.log('RETRY ERROR', e)
+        console.log('RETRY ERROR', mark, e)
         throw e
       }
     }
@@ -523,18 +529,25 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
 
 
   async function waitForRefreshToken() {
-    if ('request' === tokenState || 'refresh' === tokenState) {
-      let start = Date.now()
+    if ('init' === tokenState) {
+      tokenState = 'start'
+      return
+    }
+    if ('active' !== tokenState) {
+      let start = Date.now(), i = 0, mark = Math.random()
+      console.log('waitForRefreshToken', tokenState, mark)
+
       for (
-        let i = 0;
-        ('request' === tokenState || 'refresh' === tokenState) &&
+        ; ('active' !== (tokenState as string)) &&
         i < 1111 &&
         ((Date.now() - start) < options.wait.refresh.max);
         i++
       ) {
         await new Promise((r) => setTimeout(r, options.wait.refresh.interval))
       }
-      if ('request' === tokenState || 'refresh' === tokenState || null == refreshToken) {
+      console.log('waitForRefreshToken', tokenState, mark, i, Date.now() - start)
+
+      if ('active' === (tokenState as string) || null == refreshToken) {
         throw new Error('bud-provider: token-not-available: state:' + tokenState)
       }
     }
