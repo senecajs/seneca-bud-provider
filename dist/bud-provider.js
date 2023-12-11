@@ -276,20 +276,22 @@ function BudProvider(options) {
         return res;
     }
     async function retryOn(attempt, _error, response) {
+        const mark = Math.random();
+        console.log('RETRY start', mark, attempt, response.status, response.statusText, tokenState, null == refreshToken);
         if (4 <= attempt) {
-            console.log('RETRY attempt', attempt, response.status, refreshToken);
+            console.log('RETRY attempt', mark, attempt, response.status, tokenState, null == refreshToken);
             return false;
         }
         if (500 <= response.status && attempt <= 3) {
-            console.log('RETRY 500', attempt, response.status);
+            console.log('RETRY 500', mark, attempt, response.status, tokenState, null == refreshToken);
             return true;
         }
         if (401 === response.status) {
-            console.log('RETRY 401', attempt, response.status);
+            console.log('RETRY 401', mark, attempt, response.status, tokenState, null == refreshToken);
             try {
                 if ('start' === tokenState || 'active' === tokenState) {
                     tokenState = 'request';
-                    console.log('RETRY REFRESH', attempt, response.status);
+                    console.log('RETRY REFRESH', mark, attempt, response.status, tokenState, null == refreshToken);
                     let refreshConfig = {
                         method: 'POST',
                         headers: {
@@ -317,7 +319,7 @@ function BudProvider(options) {
                     return true;
                 }
                 else if ('refresh' === tokenState) {
-                    console.log('RETRY ACCESS', attempt, response.status);
+                    console.log('RETRY ACCESS', mark, attempt, response.status, tokenState, null == refreshToken);
                     // console.log('GET ACCESS', config.headers)
                     let accessConfig = {
                         method: 'POST',

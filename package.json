@@ -1,6 +1,6 @@
 {
   "name": "@seneca/bud-provider",
-  "version": "0.5.0",
+  "version": "0.5.3",
   "main": "dist/bud-provider.js",
   "type": "commonjs",
   "types": "dist/bud-provider.d.ts",
