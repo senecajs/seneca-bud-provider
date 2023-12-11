@@ -5,6 +5,31 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const package_json_1 = __importDefault(require("../package.json"));
+// Default options.
+const defaults = {
+    // NOTE: include trailing /
+    url: 'https://api-sandbox.thisisbud.com/',
+    // Use global fetch by default - if exists
+    fetch: ('undefined' === typeof fetch ? undefined : fetch),
+    // TODO: Enable debug logging
+    debug: false,
+    // See @seneca/provider
+    retry: {
+        config: {
+            retryDelay: 100,
+        }
+    },
+    entity: {},
+    wait: {
+        refresh: {
+            max: 11111,
+            interval: 111,
+        }
+    },
+    limit: {
+        retry: 111, // Global maximum number of retries.
+    },
+};
 function BudProvider(options) {
     const seneca = this;
     const { Gubu } = seneca.util;
@@ -20,6 +45,7 @@ function BudProvider(options) {
     let refreshToken;
     let accessToken;
     let tokenState = 'init';
+    let retryCount = 0;
     const makeUtils = this.export('provider/makeUtils');
     const { makeUrl, get, post, entityBuilder, origFetcher, asyncLocalStorage, } = makeUtils({
         name: 'bud',
@@ -280,7 +306,10 @@ function BudProvider(options) {
     }
     async function retryOn(attempt, _error, response) {
         const mark = Math.random();
-        console.log('RETRY start', mark, attempt, response === null || response === void 0 ? void 0 : response.status, response === null || response === void 0 ? void 0 : response.statusText, tokenState, null == refreshToken);
+        console.log('RETRY start', mark, attempt, retryCount, response === null || response === void 0 ? void 0 : response.status, response === null || response === void 0 ? void 0 : response.statusText, tokenState, null == refreshToken);
+        if (options.limit.retry < retryCount && 4 <= attempt) {
+            throw new Error('bud-provider: global retry limit reached: ' + retryCount);
+        }
         if (4 <= attempt) {
             console.log('RETRY attempt', mark, attempt, response === null || response === void 0 ? void 0 : response.status, tokenState, null == refreshToken);
             return false;
@@ -310,11 +339,11 @@ function BudProvider(options) {
                     console.log('GET REFRESH', mark, refreshConfig);
                     let refreshResult = await origFetcher(options.url + 'v1/oauth/token', refreshConfig);
                     if (200 !== refreshResult.status) {
-                        console.log('REFRESH TOKEN FAIL', refreshConfig, refreshResult);
+                        console.log('REFRESH TOKEN FAIL', refreshConfig, refreshResult.status);
                         throw new Error('bud-provider: refresh-token: status:' + refreshResult.status);
                     }
                     options.debug &&
-                        console.log('REFRESH RESULT', mark, refreshConfig, refreshResult);
+                        console.log('REFRESH RESULT', mark, refreshConfig, refreshResult.status);
                     let refreshJSON = await refreshResult.json();
                     // console.log('REFRESH JSON', refreshJSON)
                     // TODO: don't store here
@@ -424,28 +453,6 @@ function BudProvider(options) {
         }
     };
 }
-// Default options.
-const defaults = {
-    // NOTE: include trailing /
-    url: 'https://api-sandbox.thisisbud.com/',
-    // Use global fetch by default - if exists
-    fetch: ('undefined' === typeof fetch ? undefined : fetch),
-    // TODO: Enable debug logging
-    debug: false,
-    // See @seneca/provider
-    retry: {
-        config: {
-            retryDelay: 100,
-        }
-    },
-    entity: {},
-    wait: {
-        refresh: {
-            max: 11111,
-            interval: 111,
-        }
-    }
-};
 Object.assign(BudProvider, { defaults });
 exports.default = BudProvider;
 if ('undefined' !== typeof module) {

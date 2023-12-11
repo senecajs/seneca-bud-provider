@@ -12,6 +12,9 @@ type FullBudProviderOptions = {
             interval: number;
         };
     };
+    limit: {
+        retry: number;
+    };
 };
 declare function BudProvider(this: any, options: FullBudProviderOptions): {
     exports: {

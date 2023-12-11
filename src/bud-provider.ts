@@ -18,9 +18,47 @@ type FullBudProviderOptions = {
       interval: number,
     }
   }
+  limit: {
+    retry: number
+  }
 }
 
 type BudProviderOptions = Partial<FullBudProviderOptions>
+
+
+// Default options.
+const defaults: BudProviderOptions = {
+
+  // NOTE: include trailing /
+  url: 'https://api-sandbox.thisisbud.com/',
+
+  // Use global fetch by default - if exists
+  fetch: ('undefined' === typeof fetch ? undefined : fetch),
+
+  // TODO: Enable debug logging
+  debug: false,
+
+  // See @seneca/provider
+  retry: {
+    config: {
+      retryDelay: 100,
+    }
+  },
+
+  entity: {},
+
+  wait: {
+    refresh: {
+      max: 11111,
+      interval: 111,
+    }
+  },
+
+
+  limit: {
+    retry: 111, // Global maximum number of retries.
+  },
+}
 
 
 function BudProvider(this: any, options: FullBudProviderOptions) {
@@ -43,6 +81,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   let refreshToken: any
   let accessToken: any
   let tokenState: 'init' | 'start' | 'request' | 'refresh' | 'active' = 'init'
+  let retryCount = 0
 
   const makeUtils = this.export('provider/makeUtils')
 
@@ -382,8 +421,12 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   async function retryOn(attempt: number, _error: any, response: any) {
     const mark = Math.random()
     console.log('RETRY start', mark, attempt,
-      response?.status, response?.statusText,
+      retryCount, response?.status, response?.statusText,
       tokenState, null == refreshToken)
+
+    if (options.limit.retry < retryCount && 4 <= attempt) {
+      throw new Error('bud-provider: global retry limit reached: ' + retryCount)
+    }
 
     if (4 <= attempt) {
       console.log('RETRY attempt', mark, attempt, response?.status,
@@ -426,12 +469,12 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
             await origFetcher(options.url + 'v1/oauth/token', refreshConfig)
 
           if (200 !== refreshResult.status) {
-            console.log('REFRESH TOKEN FAIL', refreshConfig, refreshResult)
+            console.log('REFRESH TOKEN FAIL', refreshConfig, refreshResult.status)
             throw new Error('bud-provider: refresh-token: status:' + refreshResult.status)
           }
 
           options.debug &&
-            console.log('REFRESH RESULT', mark, refreshConfig, refreshResult)
+            console.log('REFRESH RESULT', mark, refreshConfig, refreshResult.status)
 
           let refreshJSON = await refreshResult.json()
           // console.log('REFRESH JSON', refreshJSON)
@@ -583,34 +626,6 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
 }
 
 
-// Default options.
-const defaults: BudProviderOptions = {
-
-  // NOTE: include trailing /
-  url: 'https://api-sandbox.thisisbud.com/',
-
-  // Use global fetch by default - if exists
-  fetch: ('undefined' === typeof fetch ? undefined : fetch),
-
-  // TODO: Enable debug logging
-  debug: false,
-
-  // See @seneca/provider
-  retry: {
-    config: {
-      retryDelay: 100,
-    }
-  },
-
-  entity: {},
-
-  wait: {
-    refresh: {
-      max: 11111,
-      interval: 111,
-    }
-  }
-}
 
 Object.assign(BudProvider, { defaults })
 
