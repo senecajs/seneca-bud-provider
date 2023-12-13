@@ -430,7 +430,7 @@ function BudProvider(options) {
                 await new Promise((r) => setTimeout(r, options.wait.refresh.interval));
             }
             console.log('waitForRefreshToken', tokenState, mark, i, Date.now() - start);
-            if ('active' === tokenState || null == refreshToken) {
+            if ('active' !== tokenState || null == refreshToken) {
                 throw new Error('bud-provider: token-not-available: state:' + tokenState);
             }
         }

@@ -598,7 +598,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       }
       console.log('waitForRefreshToken', tokenState, mark, i, Date.now() - start)
 
-      if ('active' === (tokenState as string) || null == refreshToken) {
+      if ('active' !== (tokenState as string) || null == refreshToken) {
         throw new Error('bud-provider: token-not-available: state:' + tokenState)
       }
     }
