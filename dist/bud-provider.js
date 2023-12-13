@@ -367,9 +367,10 @@ function BudProvider(options) {
                         body: `grant_type=refresh_token&refresh_token=${refreshToken}`
                     };
                     let accessResult = await origFetcher(options.url + 'v1/oauth/token', accessConfig);
-                    // console.log('ACCESS RES', accessConfig, accessResult)
+                    console.log('ACCESS RES', accessConfig, accessResult.status);
                     // console.log('access res', accessResult.status)
                     if (401 === accessResult.status) {
+                        console.log('ACCESS TOKEN RESTART', accessConfig, accessResult.status);
                         refreshToken = null;
                         tokenState = 'start';
                         return true;
@@ -379,7 +380,7 @@ function BudProvider(options) {
                         throw new Error('bud-provider: access-token: status:' + accessResult.status);
                     }
                     let accessJSON = await accessResult.json();
-                    // console.log('ACCESS JSON', accessJSON)
+                    console.log('ACCESS JSON', accessJSON);
                     accessToken = accessJSON.data.access_token;
                     let store = asyncLocalStorage.getStore();
                     // console.log('store', store)
@@ -391,6 +392,7 @@ function BudProvider(options) {
                     config.headers['X-Client-Id'] = seneca.shared.clientid;
                     // console.log('store end', store)
                     tokenState = 'active';
+                    console.log('ACCESS TOKEN ACTIVE', config);
                     return true;
                 }
             }

@@ -507,10 +507,11 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           let accessResult =
             await origFetcher(options.url + 'v1/oauth/token', accessConfig)
 
-          // console.log('ACCESS RES', accessConfig, accessResult)
+          console.log('ACCESS RES', accessConfig, accessResult.status)
 
           // console.log('access res', accessResult.status)
           if (401 === accessResult.status) {
+            console.log('ACCESS TOKEN RESTART', accessConfig, accessResult.status)
             refreshToken = null
             tokenState = 'start'
             return true
@@ -521,7 +522,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           }
 
           let accessJSON = await accessResult.json()
-          // console.log('ACCESS JSON', accessJSON)
+          console.log('ACCESS JSON', accessJSON)
 
           accessToken = accessJSON.data.access_token
 
@@ -540,6 +541,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           // console.log('store end', store)
 
           tokenState = 'active'
+          console.log('ACCESS TOKEN ACTIVE', config)
 
           return true
         }
