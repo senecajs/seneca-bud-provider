@@ -238,6 +238,9 @@ function BudProvider(options) {
                 console.log('LIST REQ', q, headers);
                 await waitForRefreshToken();
                 while (paging && pI < maxPages) {
+                    if (nextPageToken) {
+                        q.page_token = nextPageToken;
+                    }
                     let json = await get(makeUrl('financial/v2/transactions', q), {
                         headers
                     });

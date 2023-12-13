@@ -328,6 +328,10 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
         await waitForRefreshToken()
 
         while (paging && pI < maxPages) {
+          if (nextPageToken) {
+            q.page_token = nextPageToken
+          }
+
           let json = await get(makeUrl('financial/v2/transactions', q), {
             headers
           })
