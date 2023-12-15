@@ -77,7 +77,7 @@ describe('bud-provider', () => {
   }, 11111)
 
 
-  
+  // NOTE: only works on sandbox as needs connected account
   test('txdown', async () => {
     if (null == Config) return;
 
@@ -169,8 +169,9 @@ async function makeSeneca() {
           },
         })
         .use(BudProvider,{
-          // debug: true,
+          debug: true,
           url: 'https://api-sandbox.thisisbud.com/',
+          // url: 'https://api.thisisbud.com/',
           entity: {
             customer: {
               save: {

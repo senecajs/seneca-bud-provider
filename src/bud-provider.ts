@@ -472,6 +472,12 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           let refreshResult =
             await origFetcher(options.url + 'v1/oauth/token', refreshConfig)
 
+          console.log('REFRESH RESOBJ',
+            refreshResult.status,
+            refreshResult.statusText,
+            refreshResult.headers,
+          )
+
           if (200 !== refreshResult.status) {
             console.log('REFRESH TOKEN FAIL', refreshConfig, refreshResult.status)
             throw new Error('bud-provider: refresh-token: status:' + refreshResult.status)
