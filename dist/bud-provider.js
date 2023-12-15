@@ -348,10 +348,12 @@ function BudProvider(options) {
                     options.debug &&
                         console.log('REFRESH RESULT', mark, refreshConfig, refreshResult.status);
                     let refreshJSON = await refreshResult.json();
-                    // console.log('REFRESH JSON', refreshJSON)
+                    options.debug &&
+                        console.log('REFRESH JSON', mark, refreshJSON);
                     // TODO: don't store here
                     refreshToken = refreshJSON.data.refresh_token;
-                    // console.log('REFRESH TOKEN', refreshToken)
+                    options.debug &&
+                        console.log('REFRESH TOKEN', mark, attempt, refreshToken);
                     if (null != refreshToken) {
                         tokenState = 'refresh';
                     }
@@ -359,7 +361,7 @@ function BudProvider(options) {
                 }
                 else if ('refresh' === tokenState) {
                     console.log('RETRY ACCESS', mark, attempt, response.status, tokenState, null == refreshToken);
-                    // console.log('GET ACCESS', config.headers)
+                    console.log('GET ACCESS', mark, config.headers);
                     let accessConfig = {
                         method: 'POST',
                         headers: {
