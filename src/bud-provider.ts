@@ -73,6 +73,27 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   }))
 
 
+  const CustomerHeadersShape = Gubu({
+    'X-Customer-Id': String,
+    'X-Customer-Secret': String,
+  })
+
+  const CustomerHeadersIDOnlyShape = Gubu({
+    'X-Customer-Id': String,
+  })
+
+  const CustomerHeadersGatewayShape = Gubu({
+    'X-Client-Id': String,
+    'X-Customer-Id': String,
+    'X-Customer-Secret': String,
+  })
+
+  const SharedHeadersShape = Gubu({
+    'X-Client-Id': String,
+    Authorization: String,
+  })
+
+
   // Shared config reference.
   const config: any = {
     headers: {}
@@ -195,9 +216,9 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       let customerid = q.customerid
 
       try {
-        let headers = {
+        let headers = CustomerHeadersIDOnlyShape({
           'X-Customer-Id': customerid
-        }
+        })
 
         let json = await get(makeUrl('v1/open-banking/connect', id), {
           headers
@@ -229,10 +250,10 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       let customersecret = q.customersecret
 
       try {
-        let headers = {
+        let headers = CustomerHeadersShape({
           'X-Customer-Id': customerid,
           'X-Customer-Secret': customersecret,
-        }
+        })
 
         await waitForRefreshToken('account.cmd.load')
 
@@ -268,10 +289,10 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       delete q.customersecret
 
       try {
-        let headers = {
+        let headers = CustomerHeadersShape({
           'X-Customer-Id': customerid,
           'X-Customer-Secret': customersecret,
-        }
+        })
 
         await waitForRefreshToken('account.cmd.list')
 
@@ -312,10 +333,10 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       delete q.customersecret
 
       try {
-        let headers = {
+        let headers = CustomerHeadersShape({
           'X-Customer-Id': customerid,
           'X-Customer-Secret': customersecret,
-        }
+        })
 
         let listdata: any[] = []
         let paging = true
@@ -405,11 +426,12 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
     customerid: string
     customersecret: string
   }) {
-    let headers = {
+    let headers = CustomerHeadersGatewayShape({
       'X-Client-Id': spec.clientid,
       'X-Customer-Id': spec.customerid,
       'X-Customer-Secret': spec.customersecret
-    }
+    })
+
     let body = {
       redirect_url: spec.redirect_url
     }
@@ -583,10 +605,10 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
 
     // console.log('BASIC', basic, auth)
 
-    this.shared.headers = {
+    this.shared.headers = SharedHeadersShape({
       'X-Client-Id': clientid,
       Authorization: 'Basic ' + auth
-    }
+    })
 
   })
 

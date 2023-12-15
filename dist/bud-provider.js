@@ -38,6 +38,22 @@ function BudProvider(options) {
         customerid: String,
         customersecret: String,
     }));
+    const CustomerHeadersShape = Gubu({
+        'X-Customer-Id': String,
+        'X-Customer-Secret': String,
+    });
+    const CustomerHeadersIDOnlyShape = Gubu({
+        'X-Customer-Id': String,
+    });
+    const CustomerHeadersGatewayShape = Gubu({
+        'X-Client-Id': String,
+        'X-Customer-Id': String,
+        'X-Customer-Secret': String,
+    });
+    const SharedHeadersShape = Gubu({
+        'X-Client-Id': String,
+        Authorization: String,
+    });
     // Shared config reference.
     const config = {
         headers: {}
@@ -132,9 +148,9 @@ function BudProvider(options) {
             let id = q.id;
             let customerid = q.customerid;
             try {
-                let headers = {
+                let headers = CustomerHeadersIDOnlyShape({
                     'X-Customer-Id': customerid
-                };
+                });
                 let json = await get(makeUrl('v1/open-banking/connect', id), {
                     headers
                 });
@@ -160,10 +176,10 @@ function BudProvider(options) {
             let customerid = q.customerid;
             let customersecret = q.customersecret;
             try {
-                let headers = {
+                let headers = CustomerHeadersShape({
                     'X-Customer-Id': customerid,
                     'X-Customer-Secret': customersecret,
-                };
+                });
                 await waitForRefreshToken('account.cmd.load');
                 let json = await get(makeUrl('financial/v2/accounts/', id), {
                     headers
@@ -191,10 +207,10 @@ function BudProvider(options) {
             delete q.customerid;
             delete q.customersecret;
             try {
-                let headers = {
+                let headers = CustomerHeadersShape({
                     'X-Customer-Id': customerid,
                     'X-Customer-Secret': customersecret,
-                };
+                });
                 await waitForRefreshToken('account.cmd.list');
                 let json = await get(makeUrl('financial/v2/accounts', q), {
                     headers
@@ -226,10 +242,10 @@ function BudProvider(options) {
             delete q.customerid;
             delete q.customersecret;
             try {
-                let headers = {
+                let headers = CustomerHeadersShape({
                     'X-Customer-Id': customerid,
                     'X-Customer-Secret': customersecret,
-                };
+                });
                 let listdata = [];
                 let paging = true;
                 let pI = 0;
@@ -293,11 +309,11 @@ function BudProvider(options) {
         entity
     });
     async function getGateway(spec) {
-        let headers = {
+        let headers = CustomerHeadersGatewayShape({
             'X-Client-Id': spec.clientid,
             'X-Customer-Id': spec.customerid,
             'X-Customer-Secret': spec.customersecret
-        };
+        });
         let body = {
             redirect_url: spec.redirect_url
         };
@@ -417,10 +433,10 @@ function BudProvider(options) {
         let basic = clientid + ':' + clientsecret;
         let auth = Buffer.from(basic).toString('base64');
         // console.log('BASIC', basic, auth)
-        this.shared.headers = {
+        this.shared.headers = SharedHeadersShape({
             'X-Client-Id': clientid,
             Authorization: 'Basic ' + auth
-        };
+        });
     });
     async function waitForRefreshToken(whence) {
         const mark = Math.random();
