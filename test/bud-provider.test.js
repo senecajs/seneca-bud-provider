@@ -59,7 +59,8 @@ describe('bud-provider', () => {
     expect(list.length > 0).toBeTruthy()
     console.log('LIST LEN A', list.length)
     
-    const setToken = seneca.export('BudProvider/setToken')
+    const budutil = seneca.export('BudProvider/util')
+    const { setToken } = budutil
     setToken('access','bad')
     
     list = await seneca.entity("provider/bud/obp").list$()
@@ -82,8 +83,9 @@ describe('bud-provider', () => {
 
     const seneca = await makeSeneca()
 
-    const setToken = seneca.export('BudProvider/setToken')
-    
+    const budutil = seneca.export('BudProvider/util')
+    const { setToken } = budutil
+
     const keymap = (await seneca.post('sys:provider,get:keymap,provider:bud')).keymap
 
     const tq = {

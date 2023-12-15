@@ -22,7 +22,7 @@ const defaults = {
     entity: {},
     wait: {
         refresh: {
-            max: 11111,
+            max: 1111,
             interval: 111,
         }
     },
@@ -84,7 +84,7 @@ function BudProvider(options) {
             let q = { ...(msg.q || {}) };
             let id = q.id;
             try {
-                await waitForRefreshToken();
+                await waitForRefreshToken('customer.cmd.load');
                 let json = await get(makeUrl('v1/customers', id, 'context'));
                 // console.log('LOAD CUSTOMER JSON', json)
                 let entdata = json.data;
@@ -110,7 +110,7 @@ function BudProvider(options) {
                         ...(msg.ent.data$(false)),
                     }
                 };
-                await waitForRefreshToken();
+                await waitForRefreshToken('customer.cmd.save');
                 let json = await post(makeUrl('platform/v3/customers'), {
                     body
                 });
@@ -164,7 +164,7 @@ function BudProvider(options) {
                     'X-Customer-Id': customerid,
                     'X-Customer-Secret': customersecret,
                 };
-                await waitForRefreshToken();
+                await waitForRefreshToken('account.cmd.load');
                 let json = await get(makeUrl('financial/v2/accounts/', id), {
                     headers
                 });
@@ -195,7 +195,7 @@ function BudProvider(options) {
                     'X-Customer-Id': customerid,
                     'X-Customer-Secret': customersecret,
                 };
-                await waitForRefreshToken();
+                await waitForRefreshToken('account.cmd.list');
                 let json = await get(makeUrl('financial/v2/accounts', q), {
                     headers
                 });
@@ -236,7 +236,7 @@ function BudProvider(options) {
                 let nextPageToken = null;
                 const maxPages = 1111;
                 console.log('LIST REQ', q, headers);
-                await waitForRefreshToken();
+                await waitForRefreshToken('transaction.cmd.list');
                 while (paging && pI < maxPages) {
                     if (nextPageToken) {
                         q.page_token = nextPageToken;
@@ -273,7 +273,7 @@ function BudProvider(options) {
         async function (entize, msg) {
             let q = { ...(msg.q || {}) };
             try {
-                await waitForRefreshToken();
+                await waitForRefreshToken('obp.cmd.list');
                 let json = await get(makeUrl('v1/open-banking/providers'), q);
                 let entlist = json.data;
                 entlist = entlist.map((entdata) => {
@@ -328,7 +328,7 @@ function BudProvider(options) {
                 tokenState = 'refresh';
             }
             try {
-                if ('start' === tokenState) {
+                if ('active' !== tokenState && 'refresh' !== tokenState) {
                     tokenState = 'request';
                     console.log('RETRY REFRESH', mark, attempt, response.status, tokenState, null == refreshToken);
                     let refreshConfig = {
@@ -421,40 +421,49 @@ function BudProvider(options) {
             Authorization: 'Basic ' + auth
         };
     });
-    async function waitForRefreshToken() {
+    async function waitForRefreshToken(whence) {
+        const mark = Math.random();
+        console.log('waitForRefreshToken call', whence, mark, tokenState);
         if ('init' === tokenState) {
             tokenState = 'start';
             return;
         }
         if ('active' !== tokenState) {
             let start = Date.now(), i = 0, mark = Math.random();
-            console.log('waitForRefreshToken', tokenState, mark);
+            console.log('waitForRefreshToken wait', whence, mark, tokenState);
             for (; ('active' !== tokenState) &&
                 i < 1111 &&
                 ((Date.now() - start) < options.wait.refresh.max); i++) {
                 await new Promise((r) => setTimeout(r, options.wait.refresh.interval));
             }
-            console.log('waitForRefreshToken', tokenState, mark, i, Date.now() - start);
-            if ('active' !== tokenState || null == refreshToken) {
-                throw new Error('bud-provider: token-not-available: state:' + tokenState);
-            }
+            console.log('waitForRefreshToken done', whence, mark, tokenState, i, Date.now() - start);
+            // if (
+            //   'active' !== (tokenState as string) ||
+            //   null == refreshToken
+            // ) {
+            //   throw new Error('bud-provider: token-not-available: state:' + tokenState)
+            // }
         }
     }
     return {
         exports: {
             getGateway,
             sdk: () => null,
-            getToken: (name) => {
-                return 'refresh' === name ? refreshToken : 'access' === name ? accessToken : null;
-            },
-            setToken: (name, value) => {
-                if ('refresh' === name) {
-                    refreshToken = value;
-                }
-                else if ('access' === name) {
-                    accessToken = value;
-                    config.headers['Authorization'] = 'Bearer ' + value;
-                    console.log('SET ACCESS', value);
+            util: {
+                getTokenState: () => tokenState,
+                setTokenState: (tokenStateIn) => tokenState = tokenStateIn,
+                getToken: (name) => {
+                    return 'refresh' === name ? refreshToken : 'access' === name ? accessToken : null;
+                },
+                setToken: (name, value) => {
+                    if ('refresh' === name) {
+                        refreshToken = value;
+                    }
+                    else if ('access' === name) {
+                        accessToken = value;
+                        config.headers['Authorization'] = 'Bearer ' + value;
+                        console.log('SET ACCESS', value);
+                    }
                 }
             }
         }

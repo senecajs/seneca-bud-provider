@@ -49,7 +49,7 @@ const defaults: BudProviderOptions = {
 
   wait: {
     refresh: {
-      max: 11111,
+      max: 1111,
       interval: 111,
     }
   },
@@ -138,7 +138,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       let id = q.id
 
       try {
-        await waitForRefreshToken()
+        await waitForRefreshToken('customer.cmd.load')
 
         let json = await get(makeUrl('v1/customers', id, 'context'))
         // console.log('LOAD CUSTOMER JSON', json)
@@ -168,7 +168,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           }
         }
 
-        await waitForRefreshToken()
+        await waitForRefreshToken('customer.cmd.save')
 
         let json = await post(makeUrl('platform/v3/customers'), {
           body
@@ -234,7 +234,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           'X-Customer-Secret': customersecret,
         }
 
-        await waitForRefreshToken()
+        await waitForRefreshToken('account.cmd.load')
 
         let json = await get(makeUrl('financial/v2/accounts/', id), {
           headers
@@ -273,7 +273,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           'X-Customer-Secret': customersecret,
         }
 
-        await waitForRefreshToken()
+        await waitForRefreshToken('account.cmd.list')
 
         let json = await get(makeUrl('financial/v2/accounts', q), {
           headers
@@ -325,7 +325,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
 
         console.log('LIST REQ', q, headers)
 
-        await waitForRefreshToken()
+        await waitForRefreshToken('transaction.cmd.list')
 
         while (paging && pI < maxPages) {
           if (nextPageToken) {
@@ -375,7 +375,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       let q = { ...(msg.q || {}) }
 
       try {
-        await waitForRefreshToken()
+        await waitForRefreshToken('obp.cmd.list')
 
         let json = await get(makeUrl('v1/open-banking/providers'), q)
         let entlist = json.data
@@ -452,7 +452,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       }
 
       try {
-        if ('start' === tokenState) {
+        if ('active' !== (tokenState as any) && 'refresh' !== tokenState) {
           tokenState = 'request'
 
           console.log('RETRY REFRESH', mark, attempt, response.status,
@@ -585,14 +585,19 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   })
 
 
-  async function waitForRefreshToken() {
+  async function waitForRefreshToken(whence: string) {
+    const mark = Math.random()
+
+    console.log('waitForRefreshToken call', whence, mark, tokenState)
+
     if ('init' === tokenState) {
       tokenState = 'start'
       return
     }
+
     if ('active' !== tokenState) {
       let start = Date.now(), i = 0, mark = Math.random()
-      console.log('waitForRefreshToken', tokenState, mark)
+      console.log('waitForRefreshToken wait', whence, mark, tokenState)
 
       for (
         ; ('active' !== (tokenState as string)) &&
@@ -602,11 +607,14 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       ) {
         await new Promise((r) => setTimeout(r, options.wait.refresh.interval))
       }
-      console.log('waitForRefreshToken', tokenState, mark, i, Date.now() - start)
+      console.log('waitForRefreshToken done', whence, mark, tokenState, i, Date.now() - start)
 
-      if ('active' !== (tokenState as string) || null == refreshToken) {
-        throw new Error('bud-provider: token-not-available: state:' + tokenState)
-      }
+      // if (
+      //   'active' !== (tokenState as string) ||
+      //   null == refreshToken
+      // ) {
+      //   throw new Error('bud-provider: token-not-available: state:' + tokenState)
+      // }
     }
   }
 
@@ -615,18 +623,22 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
     exports: {
       getGateway,
       sdk: () => null,
-      getToken: (name: string) => {
-        return 'refresh' === name ? refreshToken : 'access' === name ? accessToken : null
-      },
-      setToken: (name: string, value: string) => {
-        if ('refresh' === name) {
-          refreshToken = value
-        }
-        else if ('access' === name) {
-          accessToken = value
-          config.headers['Authorization'] = 'Bearer ' + value
+      util: {
+        getTokenState: () => tokenState,
+        setTokenState: (tokenStateIn: typeof tokenState) => tokenState = tokenStateIn,
+        getToken: (name: string) => {
+          return 'refresh' === name ? refreshToken : 'access' === name ? accessToken : null
+        },
+        setToken: (name: string, value: string) => {
+          if ('refresh' === name) {
+            refreshToken = value
+          }
+          else if ('access' === name) {
+            accessToken = value
+            config.headers['Authorization'] = 'Bearer ' + value
 
-          console.log('SET ACCESS', value)
+            console.log('SET ACCESS', value)
+          }
         }
       }
     }
