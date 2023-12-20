@@ -425,6 +425,8 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
     clientid: string
     customerid: string
     customersecret: string
+    account_id: string
+    mode: string
   }) {
     let headers = CustomerHeadersGatewayShape({
       'X-Client-Id': spec.clientid,
@@ -433,7 +435,8 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
     })
 
     let body = {
-      redirect_url: spec.redirect_url
+      redirect_url: spec.redirect_url,
+      initial_screen: (mode === 'reconnect')?'reconfirm_consent':undefined
     }
     let res = post(makeUrl('v2/open-banking/authorisation-gateway-url'), {
       headers,
