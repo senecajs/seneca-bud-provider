@@ -125,6 +125,9 @@ describe('bud-provider', () => {
         },111)
       })
     })
+
+    console.log('STATS', seneca.export('BudProvider/stats')())
+    
   }, 11111)
 
   
@@ -168,6 +171,20 @@ async function makeSeneca() {
             },
           },
         })
+
+  /*
+      .use('evervault-provider', {
+        config: {
+          
+          decryptionDomains: [
+            'api-sandbox.thisisbud.com',
+            'api.thisisbud.com',
+          ],
+          debugRequests: true
+        }
+      })
+*/
+  
         .use(BudProvider,{
           debug: true,
           url: 'https://api-sandbox.thisisbud.com/',

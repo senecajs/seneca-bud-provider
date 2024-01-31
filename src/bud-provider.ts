@@ -96,7 +96,15 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
 
   // Shared config reference.
   const config: any = {
-    headers: {}
+    headers: {},
+    stats: {
+      refresh: 0,  // count of refresh token fetches
+      access: 0,   // count of access token fetches
+      req: 0,      // count of requests
+      res: 0,      // count of non-error responses
+      error: 0,    // error count,
+      notfound: 0, // count of not founds
+    }
   }
 
   let refreshToken: any
@@ -126,8 +134,6 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   })
 
 
-  // console.log('makeUtils', 'get', get)
-
   seneca.message('sys:provider,provider:bud,get:info', get_info)
 
   async function get_info(this: any, _msg: any) {
@@ -139,6 +145,15 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
         name: 'bud',
       },
     }
+  }
+
+
+  function stats() {
+    return config.stats
+  }
+
+  function logstats(mark: string) {
+    console.log('BUDSTATS', mark, JSON.stringify(stats()).replace(/"/g, ''))
   }
 
 
@@ -159,29 +174,38 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       let id = q.id
 
       try {
+        config.stats.req++
+
         await waitForRefreshToken('customer.cmd.load')
 
         let json = await get(makeUrl('v1/customers', id, 'context'))
-        // console.log('LOAD CUSTOMER JSON', json)
         let entdata = json.data
         entdata.id = id
+
+        config.stats.res++
         return entize(entdata)
       }
       catch (e: any) {
-        // console.log('LOAD CUSTOMER', e)
         let res = e.provider?.response
 
         if (404 === res?.status) {
+          config.stats.notfound++
           return null
         }
 
+        config.stats.error++
         throw e
       }
+      finally {
+        options.debug && logstats('customer-load')
+      }
     }
+
 
   entity.customer.cmd.save.action =
     async function(this: any, entize: any, msg: any) {
       try {
+        config.stats.req++
         let body = {
           customer_context: {
             ...(options.entity?.customer?.save || {}),
@@ -195,16 +219,18 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           body
         })
 
-        // console.log('SAVE CUSTOMER JSON', json)
         let entdata = json.data
         entdata.id = entdata.customer_id
+
+        config.stats.res++
         return entize(entdata)
       }
       catch (e: any) {
-        // console.log('SAVE CUSTOMER', e)
-        // let res = e.provider?.response
-
+        config.stats.error++
         throw e
+      }
+      finally {
+        options.debug && logstats('customer-save')
       }
     }
 
@@ -216,6 +242,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       let customerid = q.customerid
 
       try {
+        config.stats.req++
         let headers = CustomerHeadersIDOnlyShape({
           'X-Customer-Id': customerid
         })
@@ -224,20 +251,25 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           headers
         })
 
-        // console.log('LOAD CONNECT JSON', json)
         let entdata = json.data
         entdata.id = id
+
+        config.stats.res++
         return entize(entdata)
       }
       catch (e: any) {
-        // console.log('LOAD CONNECT ERR', e)
         let res = e.provider?.response
 
         if (404 === res?.status) {
+          config.stats.notfound++
           return null
         }
 
+        config.stats.error++
         throw e
+      }
+      finally {
+        options.debug && logstats('connection-load')
       }
     }
 
@@ -250,6 +282,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       let customersecret = q.customersecret
 
       try {
+        config.stats.req++
         let headers = CustomerHeadersShape({
           'X-Customer-Id': customerid,
           'X-Customer-Secret': customersecret,
@@ -261,20 +294,25 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           headers
         })
 
-        // console.log('LOAD CONNECT JSON', json)
         let entdata = json.data
         entdata.id = id
+
+        config.stats.res++
         return entize(entdata)
       }
       catch (e: any) {
-        // console.log('LOAD CONNECT ERR', e)
         let res = e.provider?.response
 
         if (404 === res?.status) {
+          config.stats.notfound++
           return null
         }
 
+        config.stats.error++
         throw e
+      }
+      finally {
+        options.debug && logstats('account-load')
       }
     }
 
@@ -289,6 +327,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       delete q.customersecret
 
       try {
+        config.stats.req++
         let headers = CustomerHeadersShape({
           'X-Customer-Id': customerid,
           'X-Customer-Secret': customersecret,
@@ -300,24 +339,29 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           headers
         })
 
-        // console.log('LOAD CONNECT JSON', json)
         let listdata = json.data
         let list = listdata.map((entry: any) => {
           let ent = entize(entry)
           ent.id = ent.account_id
           return ent
         })
+
+        config.stats.res++
         return list
       }
       catch (e: any) {
-        // console.log('LIST ACCOUNT ERR', e)
         let res = e.provider?.response
 
         if (404 === res?.status) {
+          config.stats.notfound++
           return null
         }
 
+        config.stats.error++
         throw e
+      }
+      finally {
+        options.debug && logstats('account-list')
       }
     }
 
@@ -333,6 +377,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       delete q.customersecret
 
       try {
+        config.stats.req++
         let headers = CustomerHeadersShape({
           'X-Customer-Id': customerid,
           'X-Customer-Secret': customersecret,
@@ -343,8 +388,6 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
         let pI = 0
         let nextPageToken: string | null | undefined = null
         const maxPages = 1111
-
-        console.log('LIST REQ', q, headers)
 
         await waitForRefreshToken('transaction.cmd.list')
 
@@ -357,9 +400,6 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
             headers
           })
 
-          console.log('LIST RES', json.data.length)
-
-          // console.log('LIST TX JSON', pI, json.data.length, json.data[0])
           listdata = listdata.concat(json.data)
 
           pI++
@@ -376,17 +416,23 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           ent.id = ent.account_id
           return ent
         })
+
+        config.stats.res++
         return list
       }
       catch (e: any) {
-        console.log('LIST TX ERR', e)
         let res = e.provider?.response
 
         if (404 === res?.status) {
+          config.stats.notfound++
           return null
         }
 
+        config.stats.error++
         throw e
+      }
+      finally {
+        options.debug && logstats('transactions-list')
       }
     }
 
@@ -396,6 +442,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       let q = { ...(msg.q || {}) }
 
       try {
+        config.stats.req++
         await waitForRefreshToken('obp.cmd.list')
 
         let json = await get(makeUrl('v1/open-banking/providers'), q)
@@ -404,10 +451,16 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           entdata.id = entdata.provider
           return entize(entdata)
         })
+
+        config.stats.res++
         return entlist
       }
       catch (e: any) {
+        config.stats.error++
         throw e
+      }
+      finally {
+        options.debug && logstats('obp-list')
       }
     }
 
@@ -426,47 +479,56 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
     customerid: string
     customersecret: string
   }) {
-    let headers = CustomerHeadersGatewayShape({
-      'X-Client-Id': spec.clientid,
-      'X-Customer-Id': spec.customerid,
-      'X-Customer-Secret': spec.customersecret
-    })
+    try {
+      config.stats.req++
+      let headers = CustomerHeadersGatewayShape({
+        'X-Client-Id': spec.clientid,
+        'X-Customer-Id': spec.customerid,
+        'X-Customer-Secret': spec.customersecret
+      })
 
-    let body = {
-      redirect_url: spec.redirect_url
+      let body = {
+        redirect_url: spec.redirect_url
+      }
+      let res = post(makeUrl('v2/open-banking/authorisation-gateway-url'), {
+        headers,
+        body,
+      })
+
+      return res
     }
-    let res = post(makeUrl('v2/open-banking/authorisation-gateway-url'), {
-      headers,
-      body,
-    })
-
-    return res
+    catch (e: any) {
+      config.stats.error++
+      throw e
+    }
+    finally {
+      options.debug && logstats('getGateway')
+    }
   }
 
 
   async function retryOn(attempt: number, _error: any, response: any) {
-    const mark = Math.random()
-    console.log('RETRY start', mark, attempt,
-      retryCount, response?.status, response?.statusText,
-      tokenState, null == refreshToken)
+    const mark = seneca.util.Nid()
+
+    console.log('BUDRETRY', mark, attempt, response.status, tokenState)
+    logstats('retryOn ' + mark)
 
     if (options.limit.retry < retryCount && 4 <= attempt) {
       throw new Error('bud-provider: global retry limit reached: ' + retryCount)
     }
 
     if (4 <= attempt) {
-      console.log('RETRY attempt', mark, attempt, response?.status,
-        tokenState, null == refreshToken)
+      console.log('BUDRETRY-BAIL', mark, attempt, response.status, tokenState)
       return false
     }
 
     if (500 <= response.status && attempt <= 3) {
-      console.log('RETRY 500', mark, attempt, response?.status, tokenState, null == refreshToken)
+      console.log('BUDRETRY-500', mark, attempt, response.status, tokenState)
       return true
     }
 
     if (401 === response.status) {
-      console.log('RETRY 401', mark, attempt, response?.status, tokenState, null == refreshToken)
+      console.log('BUDRETRY-401', mark, attempt, response.status, tokenState)
 
       // Try to refresh the access token first.
       if ('active' === tokenState) {
@@ -477,9 +539,6 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
         if ('active' !== (tokenState as any) && 'refresh' !== tokenState) {
           tokenState = 'request'
 
-          console.log('RETRY REFRESH', mark, attempt, response.status,
-            tokenState, null == refreshToken)
-
           let refreshConfig = {
             method: 'POST',
             headers: {
@@ -489,46 +548,31 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
             body: 'grant_type=client_credentials'
           }
 
-          console.log('GET REFRESH', mark, refreshConfig)
+          config.stats.refresh++
+          console.log('BUDRETRY-REFRESH', mark, attempt, response.status, tokenState)
 
           let refreshResult =
             await origFetcher(options.url + 'v1/oauth/token', refreshConfig)
 
-          console.log('REFRESH RESOBJ',
-            refreshResult.status,
-            refreshResult.statusText,
-            refreshResult.headers,
-          )
+          console.log('BUDRETRY-REFRESH-RESULT', mark, refreshResult.status)
 
           if (200 !== refreshResult.status) {
-            console.log('REFRESH TOKEN FAIL', refreshConfig, refreshResult.status)
             throw new Error('bud-provider: refresh-token: status:' + refreshResult.status)
           }
 
-          options.debug &&
-            console.log('REFRESH RESULT', mark, refreshConfig, refreshResult.status)
-
           let refreshJSON = await refreshResult.json()
-          options.debug &&
-            console.log('REFRESH JSON', mark, refreshJSON)
 
           // TODO: don't store here
           refreshToken = refreshJSON.data.refresh_token
-
-          options.debug &&
-            console.log('REFRESH TOKEN', mark, attempt, refreshToken)
 
           if (null != refreshToken) {
             tokenState = 'refresh'
           }
 
-          return true
+          console.log('BUDRETRY-REFRESH-DONE', mark, tokenState, refreshToken.substring(0, 22))
         }
-        else if ('refresh' === tokenState) {
-          console.log('RETRY ACCESS', mark, attempt, response.status,
-            tokenState, null == refreshToken)
-          console.log('GET ACCESS', mark, config.headers)
 
+        if ('refresh' === tokenState) {
           let accessConfig = {
             method: 'POST',
             headers: {
@@ -538,30 +582,28 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
             },
             body: `grant_type=refresh_token&refresh_token=${refreshToken}`
           }
+
+          config.stats.access++
+          console.log('BUDRETRY-ACCESS', mark, attempt, response.status, tokenState)
+
           let accessResult =
             await origFetcher(options.url + 'v1/oauth/token', accessConfig)
 
-          console.log('ACCESS RES', accessConfig, accessResult.status)
+          console.log('BUDRETRY-ACCESS-RESULT', mark, accessResult.status)
 
-          // console.log('access res', accessResult.status)
           if (401 === accessResult.status) {
-            console.log('ACCESS TOKEN RESTART', accessConfig, accessResult.status)
             refreshToken = null
             tokenState = 'start'
             return true
           }
           else if (200 !== accessResult.status) {
-            console.log('ACCESS TOKEN FAIL', accessConfig, accessResult)
             throw new Error('bud-provider: access-token: status:' + accessResult.status)
           }
 
           let accessJSON = await accessResult.json()
-          console.log('ACCESS JSON', accessJSON)
-
           accessToken = accessJSON.data.access_token
 
           let store = asyncLocalStorage.getStore()
-          // console.log('store', store)
           let currentConfig = store.config
 
           let authContent = 'Bearer ' + accessToken
@@ -572,17 +614,18 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           currentConfig.headers['X-Client-Id'] = seneca.shared.clientid
           config.headers['X-Client-Id'] = seneca.shared.clientid
 
-          // console.log('store end', store)
-
           tokenState = 'active'
-          console.log('ACCESS TOKEN ACTIVE', config)
+
+          console.log('BUDRETRY-ACCESS-DONE', mark, tokenState,
+            refreshToken.substring(0, 22),
+            accessToken.substring(0, 22),
+          )
 
           return true
         }
       }
       catch (e) {
         tokenState = 'start'
-        console.log('RETRY ERROR', mark, e)
         throw e
       }
     }
@@ -603,8 +646,6 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
     let basic = clientid + ':' + clientsecret
     let auth = Buffer.from(basic).toString('base64')
 
-    // console.log('BASIC', basic, auth)
-
     this.shared.headers = SharedHeadersShape({
       'X-Client-Id': clientid,
       Authorization: 'Basic ' + auth
@@ -613,19 +654,18 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   })
 
 
-  async function waitForRefreshToken(whence: string) {
+  async function waitForRefreshToken(_whence: string) {
     const mark = Math.random()
-
-    console.log('waitForRefreshToken call', whence, mark, tokenState)
+    const initialTokenState = tokenState
 
     if ('init' === tokenState) {
       tokenState = 'start'
+      console.log('BUDWRT-A', mark, initialTokenState, tokenState)
       return
     }
 
     if ('active' !== tokenState) {
-      let start = Date.now(), i = 0, mark = Math.random()
-      console.log('waitForRefreshToken wait', whence, mark, tokenState)
+      let start = Date.now(), i = 0
 
       for (
         ; ('active' !== (tokenState as string)) &&
@@ -635,14 +675,11 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       ) {
         await new Promise((r) => setTimeout(r, options.wait.refresh.interval))
       }
-      console.log('waitForRefreshToken done', whence, mark, tokenState, i, Date.now() - start)
 
-      // if (
-      //   'active' !== (tokenState as string) ||
-      //   null == refreshToken
-      // ) {
-      //   throw new Error('bud-provider: token-not-available: state:' + tokenState)
-      // }
+      console.log('BUDWRT-B', mark, initialTokenState, tokenState)
+    }
+    else {
+      console.log('BUDWRT-C', mark, initialTokenState, tokenState)
     }
   }
 
@@ -651,6 +688,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
     exports: {
       getGateway,
       sdk: () => null,
+      stats: () => config.stats,
       util: {
         getTokenState: () => tokenState,
         setTokenState: (tokenStateIn: typeof tokenState) => tokenState = tokenStateIn,
@@ -665,7 +703,6 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
             accessToken = value
             config.headers['Authorization'] = 'Bearer ' + value
 
-            console.log('SET ACCESS', value)
           }
         }
       }
