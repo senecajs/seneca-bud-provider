@@ -499,6 +499,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
         body,
       })
 
+      config.stats.res++
       return res
     }
     catch (e: any) {

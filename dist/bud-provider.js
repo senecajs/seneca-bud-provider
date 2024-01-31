@@ -370,6 +370,7 @@ function BudProvider(options) {
                 headers,
                 body,
             });
+            config.stats.res++;
             return res;
         }
         catch (e) {
