@@ -23,6 +23,8 @@ declare function BudProvider(this: any, options: FullBudProviderOptions): {
             clientid: string;
             customerid: string;
             customersecret: string;
+            account_id?: string;
+            mode?: string;
         }) => Promise<any>;
         sdk: () => null;
         stats: () => any;

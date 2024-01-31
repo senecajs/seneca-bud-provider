@@ -362,7 +362,9 @@ function BudProvider(options) {
                 'X-Customer-Secret': spec.customersecret
             });
             let body = {
-                redirect_url: spec.redirect_url
+                redirect_url: spec.redirect_url,
+                initial_screen: (spec.mode === 'reconnect') ? 'reconfirm_consent' : undefined,
+                reconfirm_consent_redirect: (spec.mode === 'reconnect') ? true : undefined,
             };
             let res = post(makeUrl('v2/open-banking/authorisation-gateway-url'), {
                 headers,

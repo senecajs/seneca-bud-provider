@@ -478,6 +478,8 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
     clientid: string
     customerid: string
     customersecret: string
+    account_id?: string
+    mode?: string
   }) {
     try {
       config.stats.req++
@@ -488,7 +490,9 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       })
 
       let body = {
-        redirect_url: spec.redirect_url
+        redirect_url: spec.redirect_url,
+        initial_screen: (spec.mode === 'reconnect') ? 'reconfirm_consent' : undefined,
+        reconfirm_consent_redirect: (spec.mode === 'reconnect') ? true : undefined,
       }
       let res = post(makeUrl('v2/open-banking/authorisation-gateway-url'), {
         headers,
