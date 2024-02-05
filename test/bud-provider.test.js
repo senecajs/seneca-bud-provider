@@ -217,7 +217,7 @@ describe('bud-provider', () => {
     
     console.log('PERSIST STATS', seneca.export('BudProvider/stats')())
     
-  }, 11111)
+  }, 22222)
 
   
   

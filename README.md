@@ -78,6 +78,7 @@ $ npm install @seneca/bud-provider @seneca/env
 * `entity` : object
 * `wait` : object
 * `limit` : object
+* `store` : object
 * `init$` : boolean
 
 
