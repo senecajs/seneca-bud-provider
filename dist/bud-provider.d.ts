@@ -15,6 +15,10 @@ type FullBudProviderOptions = {
     limit: {
         retry: number;
     };
+    store: {
+        saveToken: any;
+        loadToken: any;
+    };
 };
 declare function BudProvider(this: any, options: FullBudProviderOptions): {
     exports: {
@@ -29,8 +33,8 @@ declare function BudProvider(this: any, options: FullBudProviderOptions): {
         sdk: () => null;
         stats: () => any;
         util: {
-            getTokenState: () => "active" | "start" | "refresh" | "init" | "request";
-            setTokenState: (tokenStateIn: "active" | "start" | "refresh" | "init" | "request") => "active" | "start" | "refresh" | "init" | "request";
+            getTokenState: () => "init" | "start" | "request" | "refresh" | "active";
+            setTokenState: (tokenStateIn: "init" | "start" | "request" | "refresh" | "active") => "init" | "start" | "request" | "refresh" | "active";
             getToken: (name: string) => any;
             setToken: (name: string, value: string) => void;
         };

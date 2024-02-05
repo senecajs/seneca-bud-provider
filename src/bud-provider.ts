@@ -21,6 +21,10 @@ type FullBudProviderOptions = {
   limit: {
     retry: number
   }
+  store: {
+    saveToken: any
+    loadToken: any
+  }
 }
 
 type BudProviderOptions = Partial<FullBudProviderOptions>
@@ -58,6 +62,12 @@ const defaults: BudProviderOptions = {
   limit: {
     retry: 111, // Global maximum number of retries.
   },
+
+
+  store: {
+    saveToken: async (_kind: string, val: string) => null,
+    loadToken: async (_kind: string) => null,
+  }
 }
 
 
@@ -100,6 +110,8 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
     stats: {
       refresh: 0,  // count of refresh token fetches
       access: 0,   // count of access token fetches
+      loadrefresh: 0, // count of refresh token loads
+      loadaccess: 0, // count of access token loads
       req: 0,      // count of requests
       res: 0,      // count of non-error responses
       error: 0,    // error count,
@@ -111,6 +123,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   let accessToken: any
   let tokenState: 'init' | 'start' | 'request' | 'refresh' | 'active' = 'init'
   let retryCount = 0
+  let isStart = true
 
   const makeUtils = this.export('provider/makeUtils')
 
@@ -515,25 +528,25 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   async function retryOn(attempt: number, _error: any, response: any) {
     const mark = seneca.util.Nid()
 
-    console.log('BUDRETRY', mark, attempt, response.status, tokenState)
-    logstats('retryOn ' + mark)
+    options.debug && console.log('BUDRETRY', mark, attempt, response.status, tokenState)
+    options.debug && logstats('retryOn ' + mark)
 
     if (options.limit.retry < retryCount && 4 <= attempt) {
       throw new Error('bud-provider: global retry limit reached: ' + retryCount)
     }
 
-    if (4 <= attempt) {
-      console.log('BUDRETRY-BAIL', mark, attempt, response.status, tokenState)
+    if (5 <= attempt) {
+      options.debug && console.log('BUDRETRY-BAIL', mark, attempt, response.status, tokenState)
       return false
     }
 
     if (500 <= response.status && attempt <= 3) {
-      console.log('BUDRETRY-500', mark, attempt, response.status, tokenState)
+      options.debug && console.log('BUDRETRY-500', mark, attempt, response.status, tokenState)
       return true
     }
 
     if (401 === response.status) {
-      console.log('BUDRETRY-401', mark, attempt, response.status, tokenState)
+      options.debug && console.log('BUDRETRY-401', mark, attempt, response.status, tokenState)
 
       // Try to refresh the access token first.
       if ('active' === tokenState) {
@@ -541,72 +554,116 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       }
 
       try {
+        options.debug && console.log('BUDRETRY-TOKEN-STATE-TOP', mark, attempt, tokenState)
+
         if ('active' !== (tokenState as any) && 'refresh' !== tokenState) {
           tokenState = 'request'
 
-          let refreshConfig = {
-            method: 'POST',
-            headers: {
-              Authorization: seneca.shared.headers.Authorization,
-              'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: 'grant_type=client_credentials'
+          let lastRefreshToken = await options.store.loadToken('refresh')
+          options.debug && console.log('BUDRETRY-LAST-REFRESH', mark, attempt, lastRefreshToken, refreshToken)
+
+          if (
+            // Very first time, try to load the current refreshtoken
+            isStart
+            || (null != lastRefreshToken && '' != lastRefreshToken &&
+              null != refreshToken && '' != refreshToken &&
+
+              // token out of date if same as last attempt
+              lastRefreshToken != refreshToken
+            )) {
+            refreshToken = lastRefreshToken
+            config.stats.loadrefresh++
+            options.debug && console.log('BUDRETRY-USING-LAST-REFRESH', mark, attempt, tokenState)
+          }
+          else {
+
+            let refreshConfig = {
+              method: 'POST',
+              headers: {
+                Authorization: seneca.shared.headers.Authorization,
+                'Content-Type': 'application/x-www-form-urlencoded'
+              },
+              body: 'grant_type=client_credentials'
+            }
+
+            config.stats.refresh++
+            options.debug && console.log('BUDRETRY-REFRESH', mark, attempt, response.status, tokenState)
+
+            let refreshResult =
+              await origFetcher(options.url + 'v1/oauth/token', refreshConfig)
+
+            options.debug && console.log('BUDRETRY-REFRESH-RESULT', mark, refreshResult.status)
+
+            if (200 !== refreshResult.status) {
+              throw new Error('bud-provider: refresh-token: status:' + refreshResult.status)
+            }
+
+            let refreshJSON = await refreshResult.json()
+
+            // TODO: don't store here
+            refreshToken = refreshJSON.data.refresh_token
+            await options.store.saveToken('refresh', refreshToken)
+
+            // Force accessToken request
+            accessToken = null
           }
 
-          config.stats.refresh++
-          console.log('BUDRETRY-REFRESH', mark, attempt, response.status, tokenState)
-
-          let refreshResult =
-            await origFetcher(options.url + 'v1/oauth/token', refreshConfig)
-
-          console.log('BUDRETRY-REFRESH-RESULT', mark, refreshResult.status)
-
-          if (200 !== refreshResult.status) {
-            throw new Error('bud-provider: refresh-token: status:' + refreshResult.status)
-          }
-
-          let refreshJSON = await refreshResult.json()
-
-          // TODO: don't store here
-          refreshToken = refreshJSON.data.refresh_token
-
-          if (null != refreshToken) {
+          if (null != refreshToken || isStart) {
             tokenState = 'refresh'
           }
 
-          console.log('BUDRETRY-REFRESH-DONE', mark, tokenState, refreshToken.substring(0, 22))
+          isStart = false
+
+          options.debug && console.log('BUDRETRY-REFRESH-DONE', mark, tokenState,
+            (refreshToken || '').substring(0, 22))
         }
 
         if ('refresh' === tokenState) {
-          let accessConfig = {
-            method: 'POST',
-            headers: {
-              Authorization: seneca.shared.headers.Authorization,
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'X-Client-Id': seneca.shared.clientid
-            },
-            body: `grant_type=refresh_token&refresh_token=${refreshToken}`
+
+          let lastAccessToken = await options.store.loadToken('access')
+          options.debug && console.log('BUDRETRY-LAST-ACCESS', mark, attempt, lastAccessToken, accessToken)
+
+          if (
+            null != lastAccessToken && '' != lastAccessToken &&
+            null != accessToken && '' != accessToken &&
+            lastAccessToken != accessToken) {
+            accessToken = lastAccessToken
+            config.stats.loadaccess++
+            options.debug && console.log('BUDRETRY-USING-LAST-ACCESS', mark, attempt, tokenState)
           }
+          else {
+            let accessConfig = {
+              method: 'POST',
+              headers: {
+                Authorization: seneca.shared.headers.Authorization,
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Client-Id': seneca.shared.clientid
+              },
+              body: `grant_type=refresh_token&refresh_token=${refreshToken}`
+            }
 
-          config.stats.access++
-          console.log('BUDRETRY-ACCESS', mark, attempt, response.status, tokenState)
+            config.stats.access++
+            options.debug && console.log('BUDRETRY-ACCESS', mark, attempt, response.status, tokenState)
 
-          let accessResult =
-            await origFetcher(options.url + 'v1/oauth/token', accessConfig)
+            let accessResult =
+              await origFetcher(options.url + 'v1/oauth/token', accessConfig)
 
-          console.log('BUDRETRY-ACCESS-RESULT', mark, accessResult.status)
+            options.debug && console.log('BUDRETRY-ACCESS-RESULT', mark, accessResult.status)
 
-          if (401 === accessResult.status) {
-            refreshToken = null
-            tokenState = 'start'
-            return true
+            if (401 === accessResult.status) {
+              refreshToken = null
+              tokenState = 'start'
+              return true
+            }
+            else if (200 !== accessResult.status) {
+              throw new Error('bud-provider: access-token: status:' + accessResult.status)
+            }
+
+            let accessJSON = await accessResult.json()
+            accessToken = accessJSON.data.access_token
+
+            await options.store.saveToken('access', accessToken)
           }
-          else if (200 !== accessResult.status) {
-            throw new Error('bud-provider: access-token: status:' + accessResult.status)
-          }
-
-          let accessJSON = await accessResult.json()
-          accessToken = accessJSON.data.access_token
 
           let store = asyncLocalStorage.getStore()
           let currentConfig = store.config
@@ -621,9 +678,9 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
 
           tokenState = 'active'
 
-          console.log('BUDRETRY-ACCESS-DONE', mark, tokenState,
-            refreshToken.substring(0, 22),
-            accessToken.substring(0, 22),
+          options.debug && console.log('BUDRETRY-ACCESS-DONE', mark, tokenState,
+            (refreshToken || '').substring(0, 22),
+            (accessToken || '').substring(0, 22),
           )
 
           return true
@@ -665,7 +722,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
 
     if ('init' === tokenState) {
       tokenState = 'start'
-      console.log('BUDWRT-A', mark, initialTokenState, tokenState)
+      options.debug && console.log('BUDWRT-A', mark, initialTokenState, tokenState)
       return
     }
 
@@ -681,10 +738,10 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
         await new Promise((r) => setTimeout(r, options.wait.refresh.interval))
       }
 
-      console.log('BUDWRT-B', mark, initialTokenState, tokenState)
+      options.debug && console.log('BUDWRT-B', mark, initialTokenState, tokenState)
     }
     else {
-      console.log('BUDWRT-C', mark, initialTokenState, tokenState)
+      options.debug && console.log('BUDWRT-C', mark, initialTokenState, tokenState)
     }
   }
 

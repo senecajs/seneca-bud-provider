@@ -130,6 +130,95 @@ describe('bud-provider', () => {
     
   }, 11111)
 
+
+
+  // NOTE: only works on sandbox as needs connected account
+  test('persist', async () => {
+    if (null == Config) return;
+    
+    const tokenStore = {}
+    
+    const seneca = await makeSeneca({
+      store: {
+        saveToken: async (kind,val) =>{
+          await new Promise((r)=>setTimeout(r,111))
+          tokenStore[kind] = val
+        },
+        loadToken: async (kind) =>{
+          await new Promise((r)=>setTimeout(r,111))
+          return tokenStore[kind]
+        }
+      }
+    })
+
+    const budutil = seneca.export('BudProvider/util')
+    const { setToken } = budutil
+
+    const keymap = (await seneca.post('sys:provider,get:keymap,provider:bud')).keymap
+
+    const tq = {
+      customerid: keymap.test_custid.value,
+      customersecret: keymap.test_custsecret.value,
+      page_size: 200,
+      account_id:  keymap.test_account.value,
+    }
+
+    console.log(tq)
+    const stats = seneca.export('BudProvider/stats')
+    
+    let list = await seneca.entity("provider/bud/transaction").list$(tq)
+    console.log('FIRST', list.length, tq, tokenStore, stats())
+    expect(list.length > 0).toBeTruthy()
+    expect(stats()).toMatchObject({
+      refresh:1,access:2,loadrefresh:1,loadaccess:0,
+    })
+
+
+    list = await seneca.entity("provider/bud/transaction").list$(tq)
+    console.log('SECOND', list.length, tokenStore)
+    expect(list.length > 0).toBeTruthy()
+    expect(stats()).toMatchObject({
+      refresh:1,access:2,loadrefresh:1,loadaccess:0,
+    })
+
+
+    setToken('access','force-fail')
+    
+    list = await seneca.entity("provider/bud/transaction").list$(tq)
+    console.log('THIRD', list.length, tokenStore)
+    expect(list.length > 0).toBeTruthy()
+    expect(stats()).toMatchObject({
+      refresh:1,access:2,loadrefresh:1,loadaccess:1,
+    })
+
+
+      
+    setToken('access','force-fail')
+    tokenStore.access = 'store-fail'
+    
+    list = await seneca.entity("provider/bud/transaction").list$(tq)
+    console.log('FOURTH', list.length, tokenStore,stats())
+    expect(list.length > 0).toBeTruthy()
+    expect(stats()).toMatchObject({
+      refresh:1,access:3,loadrefresh:1,loadaccess:2,
+    })
+
+    
+    setToken('refresh','force-fail')
+    tokenStore.refresh = 'store-fail-bad'
+    setToken('access','force-fail')
+    tokenStore.access = 'store-fail-bad'
+    
+    list = await seneca.entity("provider/bud/transaction").list$(tq)
+    console.log('FIFTH', list.length, tokenStore, stats())
+    expect(stats()).toMatchObject({
+      refresh:2,access:5,loadrefresh:1,loadaccess:3,
+    })
+    
+    console.log('PERSIST STATS', seneca.export('BudProvider/stats')())
+    
+  }, 11111)
+
   
   
   test('maintain', async () => {
@@ -137,7 +226,7 @@ describe('bud-provider', () => {
   })
 })
 
-async function makeSeneca() {
+async function makeSeneca(budopts) {
   const seneca =Seneca({ legacy: false })
         .test()
         .use('promisify')
@@ -186,7 +275,7 @@ async function makeSeneca() {
 */
   
         .use(BudProvider,{
-          debug: true,
+          debug: false,
           url: 'https://api-sandbox.thisisbud.com/',
           // url: 'https://api.thisisbud.com/',
           entity: {
@@ -195,7 +284,8 @@ async function makeSeneca() {
                 host_secret: false
               }
             }
-          }
+          },
+          ...(budopts||{}),
         })
 
   return seneca.ready()
