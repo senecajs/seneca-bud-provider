@@ -74,6 +74,7 @@ $ npm install @seneca/bud-provider @seneca/env
 * `url` : string
 * `fetch` : any
 * `debug` : boolean
+* `print` : object
 * `retry` : object
 * `entity` : object
 * `wait` : object

@@ -8,6 +8,9 @@ type FullBudProviderOptions = {
   url: string
   fetch: any
   debug: boolean
+  print: {
+    request: boolean
+  }
   entity: Record<string, Record<string, any>>
   retry: {
     config: Record<string, any>
@@ -42,6 +45,10 @@ const defaults: BudProviderOptions = {
   // TODO: Enable debug logging
   debug: false,
 
+  print: {
+    request: false,
+  },
+
   // See @seneca/provider
   retry: {
     config: {
@@ -53,8 +60,8 @@ const defaults: BudProviderOptions = {
 
   wait: {
     refresh: {
-      max: 1111,
-      interval: 111,
+      max: 2222,
+      interval: 222,
     }
   },
 
@@ -65,7 +72,7 @@ const defaults: BudProviderOptions = {
 
 
   store: {
-    saveToken: async (_kind: string, val: string) => null,
+    saveToken: async (_kind: string, _val: string) => null,
     loadToken: async (_kind: string) => null,
   }
 }
@@ -107,17 +114,19 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   // Shared config reference.
   const config: any = {
     headers: {},
-    stats: {
-      refresh: 0,  // count of refresh token fetches
-      access: 0,   // count of access token fetches
-      loadrefresh: 0, // count of refresh token loads
-      loadaccess: 0, // count of access token loads
-      req: 0,      // count of requests
-      res: 0,      // count of non-error responses
-      error: 0,    // error count,
-      notfound: 0, // count of not founds
-    }
   }
+
+  const statsCounters = {
+    refresh: 0,  // count of refresh token fetches
+    access: 0,   // count of access token fetches
+    loadrefresh: 0, // count of refresh token loads
+    loadaccess: 0, // count of access token loads
+    req: 0,      // count of requests
+    res: 0,      // count of non-error responses
+    error: 0,    // error count,
+    notfound: 0, // count of not founds
+  }
+
 
   let refreshToken: any
   let accessToken: any
@@ -147,6 +156,33 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   })
 
 
+  const budGet = async function(traceid: string, ...args: any[]) {
+    logreq(traceid, 'orig', 'GET', 0, args)
+    return get(...args)
+  }
+
+  const budPost = async function(traceid: string, ...args: any[]) {
+    logreq(traceid, 'orig', 'POST', 0, args)
+    return post(...args)
+  }
+
+
+  function logreq(traceid: string, phase: string, method: string, attempt: number, args: any[]) {
+    args[1] = (args[1] || {})
+    args[1].headers = (args[1].headers || {})
+    const tid = args[1].headers['X-SenecaBudProvider-TraceID'] =
+      (args[1].headers['X-SenecaBudProvider-TraceID'] || (traceid || seneca.util.Nid()))
+    options.print.request &&
+      console.log('BUDREQ', method, seneca.id, tid, phase, attempt, tokenState,
+        refreshToken && refreshToken.substring(0, 8),
+        accessToken && accessToken.substring(0, 8),
+        JSI(statsCounters),
+        JSI(args[0]),
+        JSI(args[1]),
+      )
+  }
+
+
   seneca.message('sys:provider,provider:bud,get:info', get_info)
 
   async function get_info(this: any, _msg: any) {
@@ -162,7 +198,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
 
 
   function stats() {
-    return config.stats
+    return statsCounters
   }
 
   function logstats(mark: string) {
@@ -187,26 +223,27 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       let id = q.id
 
       try {
-        config.stats.req++
+        statsCounters.req++
 
-        await waitForRefreshToken('customer.cmd.load')
+        const traceid = 'T' + seneca.util.Nid()
+        await waitForToken('customer.cmd.load', traceid)
 
-        let json = await get(makeUrl('v1/customers', id, 'context'))
+        let json = await budGet(traceid, makeUrl('v1/customers', id, 'context'))
         let entdata = json.data
         entdata.id = id
 
-        config.stats.res++
+        statsCounters.res++
         return entize(entdata)
       }
       catch (e: any) {
         let res = e.provider?.response
 
         if (404 === res?.status) {
-          config.stats.notfound++
+          statsCounters.notfound++
           return null
         }
 
-        config.stats.error++
+        statsCounters.error++
         throw e
       }
       finally {
@@ -218,7 +255,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   entity.customer.cmd.save.action =
     async function(this: any, entize: any, msg: any) {
       try {
-        config.stats.req++
+        statsCounters.req++
         let body = {
           customer_context: {
             ...(options.entity?.customer?.save || {}),
@@ -226,20 +263,21 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           }
         }
 
-        await waitForRefreshToken('customer.cmd.save')
+        const traceid = 'T' + seneca.util.Nid()
+        await waitForToken('customer.cmd.save', traceid)
 
-        let json = await post(makeUrl('platform/v3/customers'), {
+        let json = await budPost(traceid, makeUrl('platform/v3/customers'), {
           body
         })
 
         let entdata = json.data
         entdata.id = entdata.customer_id
 
-        config.stats.res++
+        statsCounters.res++
         return entize(entdata)
       }
       catch (e: any) {
-        config.stats.error++
+        statsCounters.error++
         throw e
       }
       finally {
@@ -255,30 +293,33 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       let customerid = q.customerid
 
       try {
-        config.stats.req++
+        statsCounters.req++
         let headers = CustomerHeadersIDOnlyShape({
           'X-Customer-Id': customerid
         })
 
-        let json = await get(makeUrl('v1/open-banking/connect', id), {
+        const traceid = 'T' + seneca.util.Nid()
+        await waitForToken('account.cmd.load', traceid)
+
+        let json = await budGet(traceid, makeUrl('v1/open-banking/connect', id), {
           headers
         })
 
         let entdata = json.data
         entdata.id = id
 
-        config.stats.res++
+        statsCounters.res++
         return entize(entdata)
       }
       catch (e: any) {
         let res = e.provider?.response
 
         if (404 === res?.status) {
-          config.stats.notfound++
+          statsCounters.notfound++
           return null
         }
 
-        config.stats.error++
+        statsCounters.error++
         throw e
       }
       finally {
@@ -295,33 +336,34 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       let customersecret = q.customersecret
 
       try {
-        config.stats.req++
+        statsCounters.req++
         let headers = CustomerHeadersShape({
           'X-Customer-Id': customerid,
           'X-Customer-Secret': customersecret,
         })
 
-        await waitForRefreshToken('account.cmd.load')
+        const traceid = 'T' + seneca.util.Nid()
+        await waitForToken('account.cmd.load', traceid)
 
-        let json = await get(makeUrl('financial/v2/accounts/', id), {
+        let json = await budGet(traceid, makeUrl('financial/v2/accounts/', id), {
           headers
         })
 
         let entdata = json.data
         entdata.id = id
 
-        config.stats.res++
+        statsCounters.res++
         return entize(entdata)
       }
       catch (e: any) {
         let res = e.provider?.response
 
         if (404 === res?.status) {
-          config.stats.notfound++
+          statsCounters.notfound++
           return null
         }
 
-        config.stats.error++
+        statsCounters.error++
         throw e
       }
       finally {
@@ -340,15 +382,16 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       delete q.customersecret
 
       try {
-        config.stats.req++
+        statsCounters.req++
         let headers = CustomerHeadersShape({
           'X-Customer-Id': customerid,
           'X-Customer-Secret': customersecret,
         })
 
-        await waitForRefreshToken('account.cmd.list')
+        const traceid = 'T' + seneca.util.Nid()
+        await waitForToken('account.cmd.list', traceid)
 
-        let json = await get(makeUrl('financial/v2/accounts', q), {
+        let json = await budGet(traceid, makeUrl('financial/v2/accounts', q), {
           headers
         })
 
@@ -359,18 +402,18 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           return ent
         })
 
-        config.stats.res++
+        statsCounters.res++
         return list
       }
       catch (e: any) {
         let res = e.provider?.response
 
         if (404 === res?.status) {
-          config.stats.notfound++
+          statsCounters.notfound++
           return null
         }
 
-        config.stats.error++
+        statsCounters.error++
         throw e
       }
       finally {
@@ -390,7 +433,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       delete q.customersecret
 
       try {
-        config.stats.req++
+        statsCounters.req++
         let headers = CustomerHeadersShape({
           'X-Customer-Id': customerid,
           'X-Customer-Secret': customersecret,
@@ -402,14 +445,15 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
         let nextPageToken: string | null | undefined = null
         const maxPages = 1111
 
-        await waitForRefreshToken('transaction.cmd.list')
+        const traceid = 'T' + seneca.util.Nid()
+        await waitForToken('transaction.cmd.list', traceid)
 
         while (paging && pI < maxPages) {
           if (nextPageToken) {
             q.page_token = nextPageToken
           }
 
-          let json = await get(makeUrl('financial/v2/transactions', q), {
+          let json = await budGet(traceid, makeUrl('financial/v2/transactions', q), {
             headers
           })
 
@@ -430,18 +474,18 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           return ent
         })
 
-        config.stats.res++
+        statsCounters.res++
         return list
       }
       catch (e: any) {
         let res = e.provider?.response
 
         if (404 === res?.status) {
-          config.stats.notfound++
+          statsCounters.notfound++
           return null
         }
 
-        config.stats.error++
+        statsCounters.error++
         throw e
       }
       finally {
@@ -455,21 +499,23 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       let q = { ...(msg.q || {}) }
 
       try {
-        config.stats.req++
-        await waitForRefreshToken('obp.cmd.list')
+        statsCounters.req++
 
-        let json = await get(makeUrl('v1/open-banking/providers'), q)
+        const traceid = 'T' + seneca.util.Nid()
+        await waitForToken('obp.cmd.list', traceid)
+
+        let json = await budGet(traceid, makeUrl('v1/open-banking/providers'), q)
         let entlist = json.data
         entlist = entlist.map((entdata: any) => {
           entdata.id = entdata.provider
           return entize(entdata)
         })
 
-        config.stats.res++
+        statsCounters.res++
         return entlist
       }
       catch (e: any) {
-        config.stats.error++
+        statsCounters.error++
         throw e
       }
       finally {
@@ -495,7 +541,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
     mode?: string
   }) {
     try {
-      config.stats.req++
+      statsCounters.req++
       let headers = CustomerHeadersGatewayShape({
         'X-Client-Id': spec.clientid,
         'X-Customer-Id': spec.customerid,
@@ -507,16 +553,19 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
         initial_screen: (spec.mode === 'reconnect') ? 'reconfirm_consent' : undefined,
         reconfirm_consent_redirect: (spec.mode === 'reconnect') ? true : undefined,
       }
-      let res = post(makeUrl('v2/open-banking/authorisation-gateway-url'), {
+
+      const traceid = 'T' + seneca.util.Nid()
+
+      let res = budPost(traceid, makeUrl('v2/open-banking/authorisation-gateway-url'), {
         headers,
         body,
       })
 
-      config.stats.res++
+      statsCounters.res++
       return res
     }
     catch (e: any) {
-      config.stats.error++
+      statsCounters.error++
       throw e
     }
     finally {
@@ -525,28 +574,144 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   }
 
 
-  async function retryOn(attempt: number, _error: any, response: any) {
-    const mark = seneca.util.Nid()
+  async function getTokens() {
+    const prev = {
+      refreshToken,
+      accessToken,
+      config: JSI(config),
+    }
 
-    options.debug && console.log('BUDRETRY', mark, attempt, response.status, tokenState)
-    options.debug && logstats('retryOn ' + mark)
+    let refreshConfig = {
+      method: 'POST',
+      headers: {
+        Authorization: seneca.shared.headers.Authorization,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'grant_type=client_credentials'
+    }
+
+    statsCounters.refresh++
+    options.debug && console.log('BUD-GT-REFRESH', tokenState)
+
+    let refreshResult =
+      await origFetcher(options.url + 'v1/oauth/token', refreshConfig)
+
+    options.debug && console.log('BUD-GT-REFRESH-RESULT', refreshResult.status)
+
+    if (200 !== refreshResult.status) {
+      throw new Error('bud-provider: refresh-token: status:' + refreshResult.status)
+    }
+
+    let refreshJSON = await refreshResult.json()
+
+    // TODO: don't store here
+    refreshToken = refreshJSON.data.refresh_token
+    await options.store.saveToken('refresh', refreshToken)
+
+    // Force accessToken request
+    accessToken = null
+
+    if (null != refreshToken || isStart) {
+      tokenState = 'refresh'
+    }
+
+    isStart = false
+
+    options.debug && console.log('BUD-GT-REFRESH-DONE', tokenState,
+      (refreshToken || '').substring(0, 22))
+
+    let accessConfig = {
+      method: 'POST',
+      headers: {
+        Authorization: seneca.shared.headers.Authorization,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Client-Id': seneca.shared.clientid
+      },
+      body: `grant_type=refresh_token&refresh_token=${refreshToken}`
+    }
+
+    statsCounters.access++
+    options.debug && console.log('BUD-GT-ACCESS', tokenState)
+
+    let accessResult =
+      await origFetcher(options.url + 'v1/oauth/token', accessConfig)
+
+    options.debug && console.log('BUD-GT-ACCESS-RESULT', accessResult.status)
+
+    if (401 === accessResult.status) {
+      refreshToken = null
+      tokenState = 'start'
+      return true
+    }
+    else if (200 !== accessResult.status) {
+      throw new Error('bud-provider: access-token: status:' + accessResult.status)
+    }
+
+    let accessJSON = await accessResult.json()
+    accessToken = accessJSON.data.access_token
+
+    await options.store.saveToken('access', accessToken)
+
+    let authContent = 'Bearer ' + accessToken
+
+    config.headers['Authorization'] = authContent
+    config.headers['X-Client-Id'] = seneca.shared.clientid
+
+    tokenState = 'active'
+
+    options.debug && console.log('BUD-GT-ACCESS-DONE', tokenState,
+      (refreshToken || '').substring(0, 22),
+      (accessToken || '').substring(0, 22),
+    )
+
+    const current = {
+      refreshToken,
+      accessToken,
+      config: JSI(config),
+    }
+
+    return {
+      when: Date.now(),
+      prev,
+      current,
+    }
+  }
+
+
+  async function retryOn(
+    attempt: number, error: any, response: any,
+    fetchspec: { resource: any, options: any }
+  ) {
+    const traceid = (fetchspec?.options?.headers || {})['X-SenecaBudProvider-TraceID'] ||
+      seneca.util.Nid()
+
+    logreq(traceid, 'retry', (fetchspec?.options?.method || 'GET'), attempt,
+      [fetchspec?.resource, fetchspec?.options])
+
+    options.debug &&
+      console.log('BUDRETRY', traceid, attempt, response?.status, tokenState, error?.message)
+    options.debug && logstats('retryOn ' + traceid)
+
+    if (error) {
+      throw error
+    }
 
     if (options.limit.retry < retryCount && 4 <= attempt) {
       throw new Error('bud-provider: global retry limit reached: ' + retryCount)
     }
 
     if (5 <= attempt) {
-      options.debug && console.log('BUDRETRY-BAIL', mark, attempt, response.status, tokenState)
+      options.debug && console.log('BUDRETRY-BAIL', traceid, attempt, response.status, tokenState)
       return false
     }
 
     if (500 <= response.status && attempt <= 3) {
-      options.debug && console.log('BUDRETRY-500', mark, attempt, response.status, tokenState)
+      options.debug && console.log('BUDRETRY-500', traceid, attempt, response.status, tokenState)
       return true
     }
 
     if (401 === response.status) {
-      options.debug && console.log('BUDRETRY-401', mark, attempt, response.status, tokenState)
+      options.debug && console.log('BUDRETRY-401', traceid, attempt, response.status, tokenState)
 
       // Try to refresh the access token first.
       if ('active' === tokenState) {
@@ -554,13 +719,13 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       }
 
       try {
-        options.debug && console.log('BUDRETRY-TOKEN-STATE-TOP', mark, attempt, tokenState)
+        options.debug && console.log('BUDRETRY-TOKEN-STATE-TOP', traceid, attempt, tokenState)
 
         if ('active' !== (tokenState as any) && 'refresh' !== tokenState) {
           tokenState = 'request'
 
           let lastRefreshToken = await options.store.loadToken('refresh')
-          options.debug && console.log('BUDRETRY-LAST-REFRESH', mark, attempt, lastRefreshToken, refreshToken)
+          options.debug && console.log('BUDRETRY-LAST-REFRESH', traceid, attempt, lastRefreshToken, refreshToken)
 
           if (
             // Very first time, try to load the current refreshtoken
@@ -572,8 +737,8 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
               lastRefreshToken != refreshToken
             )) {
             refreshToken = lastRefreshToken
-            config.stats.loadrefresh++
-            options.debug && console.log('BUDRETRY-USING-LAST-REFRESH', mark, attempt, tokenState)
+            statsCounters.loadrefresh++
+            options.debug && console.log('BUDRETRY-USING-LAST-REFRESH', traceid, attempt, tokenState)
           }
           else {
 
@@ -586,13 +751,13 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
               body: 'grant_type=client_credentials'
             }
 
-            config.stats.refresh++
-            options.debug && console.log('BUDRETRY-REFRESH', mark, attempt, response.status, tokenState)
+            statsCounters.refresh++
+            options.debug && console.log('BUDRETRY-REFRESH', traceid, attempt, response.status, tokenState)
 
             let refreshResult =
               await origFetcher(options.url + 'v1/oauth/token', refreshConfig)
 
-            options.debug && console.log('BUDRETRY-REFRESH-RESULT', mark, refreshResult.status)
+            options.debug && console.log('BUDRETRY-REFRESH-RESULT', traceid, refreshResult.status)
 
             if (200 !== refreshResult.status) {
               throw new Error('bud-provider: refresh-token: status:' + refreshResult.status)
@@ -614,22 +779,22 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
 
           isStart = false
 
-          options.debug && console.log('BUDRETRY-REFRESH-DONE', mark, tokenState,
+          options.debug && console.log('BUDRETRY-REFRESH-DONE', traceid, tokenState,
             (refreshToken || '').substring(0, 22))
         }
 
         if ('refresh' === tokenState) {
 
           let lastAccessToken = await options.store.loadToken('access')
-          options.debug && console.log('BUDRETRY-LAST-ACCESS', mark, attempt, lastAccessToken, accessToken)
+          options.debug && console.log('BUDRETRY-LAST-ACCESS', traceid, attempt, lastAccessToken, accessToken)
 
           if (
             null != lastAccessToken && '' != lastAccessToken &&
             null != accessToken && '' != accessToken &&
             lastAccessToken != accessToken) {
             accessToken = lastAccessToken
-            config.stats.loadaccess++
-            options.debug && console.log('BUDRETRY-USING-LAST-ACCESS', mark, attempt, tokenState)
+            statsCounters.loadaccess++
+            options.debug && console.log('BUDRETRY-USING-LAST-ACCESS', traceid, attempt, tokenState)
           }
           else {
             let accessConfig = {
@@ -642,13 +807,13 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
               body: `grant_type=refresh_token&refresh_token=${refreshToken}`
             }
 
-            config.stats.access++
-            options.debug && console.log('BUDRETRY-ACCESS', mark, attempt, response.status, tokenState)
+            statsCounters.access++
+            options.debug && console.log('BUDRETRY-ACCESS', traceid, attempt, response.status, tokenState)
 
             let accessResult =
               await origFetcher(options.url + 'v1/oauth/token', accessConfig)
 
-            options.debug && console.log('BUDRETRY-ACCESS-RESULT', mark, accessResult.status)
+            options.debug && console.log('BUDRETRY-ACCESS-RESULT', traceid, accessResult.status)
 
             if (401 === accessResult.status) {
               refreshToken = null
@@ -678,7 +843,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
 
           tokenState = 'active'
 
-          options.debug && console.log('BUDRETRY-ACCESS-DONE', mark, tokenState,
+          options.debug && console.log('BUDRETRY-ACCESS-DONE', traceid, tokenState,
             (refreshToken || '').substring(0, 22),
             (accessToken || '').substring(0, 22),
           )
@@ -716,41 +881,44 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   })
 
 
-  async function waitForRefreshToken(_whence: string) {
-    const mark = Math.random()
+  async function waitForToken(_whence: string, traceid: string) {
     const initialTokenState = tokenState
+    let start = Date.now(), i = 0
 
     if ('init' === tokenState) {
       tokenState = 'start'
-      options.debug && console.log('BUDWRT-A', mark, initialTokenState, tokenState)
-      return
+      options.debug && console.log('BUDWAIT-INIT', traceid, initialTokenState, tokenState)
     }
 
-    if ('active' !== tokenState) {
-      let start = Date.now(), i = 0
-
+    else if ('active' !== tokenState) {
       for (
         ; ('active' !== (tokenState as string)) &&
         i < 1111 &&
         ((Date.now() - start) < options.wait.refresh.max);
         i++
       ) {
+        options.debug &&
+          console.log('BUDWAIT-WAITING', traceid, initialTokenState, tokenState,
+            i, Date.now() - start)
         await new Promise((r) => setTimeout(r, options.wait.refresh.interval))
       }
 
-      options.debug && console.log('BUDWRT-B', mark, initialTokenState, tokenState)
+      options.debug &&
+        console.log('BUDWAIT-WAITED', traceid, initialTokenState, tokenState,
+          i, Date.now() - start)
     }
-    else {
-      options.debug && console.log('BUDWRT-C', mark, initialTokenState, tokenState)
-    }
+
+    options.debug && console.log('BUDWAIT-DONE', traceid, initialTokenState, tokenState,
+      Date.now() - start)
   }
 
 
   return {
     exports: {
+      getTokens,
       getGateway,
       sdk: () => null,
-      stats: () => config.stats,
+      stats: () => statsCounters,
       util: {
         getTokenState: () => tokenState,
         setTokenState: (tokenStateIn: typeof tokenState) => tokenState = tokenStateIn,
@@ -764,7 +932,6 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
           else if ('access' === name) {
             accessToken = value
             config.headers['Authorization'] = 'Bearer ' + value
-
           }
         }
       }
@@ -772,6 +939,15 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   }
 }
 
+
+function JSI(o: any) {
+  try {
+    return (JSON.stringify(o) || '').replace(/"/g, '')
+  }
+  catch (e: any) {
+    return o + ' JSI:' + e.message
+  }
+}
 
 
 Object.assign(BudProvider, { defaults })

@@ -1,6 +1,6 @@
 {
   "name": "@seneca/bud-provider",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "main": "dist/bud-provider.js",
   "type": "commonjs",
   "types": "dist/bud-provider.d.ts",
@@ -46,7 +46,7 @@
   },
   "peerDependencies": {
     "@seneca/env": ">=0.2",
-    "@seneca/provider": ">=2",
+    "@seneca/provider": ">=3",
     "seneca": ">=3",
     "seneca-entity": ">=25",
     "seneca-promisify": ">=3"
@@ -56,7 +56,6 @@
     "@seneca/env": "^0.2.0",
     "@seneca/evervault-provider": "^0.3.1",
     "@seneca/maintain": "^0.1.0",
-    "@seneca/provider": "^2.0.1",
     "@seneca/user": "^6.3.0",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.11.16",

@@ -38,16 +38,33 @@ describe('bud-provider', () => {
   })
 
   
+  test('getTokens', async () => {
+    if (null == Config) return;
+
+    const seneca = await makeSeneca({debug:true, print:{request:true}})
+    const getTokens = seneca.export('BudProvider/getTokens')
+
+    const tokens = await getTokens()
+    console.dir(tokens,{depth:null})
+
+    expect(tokens.when).toBeDefined()
+  })
+
+
   test('obp-list', async () => {
     if (null == Config) return;
 
-    const seneca = await makeSeneca()
+    const seneca = await makeSeneca({debug:true, print:{request:true}})
+
+    seneca.entity("provider/bud/obp").list$()
     const list = await seneca.entity("provider/bud/obp").list$()
 
     // console.log(list)
 
+    await seneca.ready()
+    
     expect(list.length > 0).toBeTruthy()
-  })
+  },11111)
 
 
 
@@ -81,7 +98,7 @@ describe('bud-provider', () => {
   test('txdown', async () => {
     if (null == Config) return;
 
-    const seneca = await makeSeneca()
+    const seneca = await makeSeneca({print:{request:true}})
 
     const budutil = seneca.export('BudProvider/util')
     const { setToken } = budutil

@@ -2,6 +2,9 @@ type FullBudProviderOptions = {
     url: string;
     fetch: any;
     debug: boolean;
+    print: {
+        request: boolean;
+    };
     entity: Record<string, Record<string, any>>;
     retry: {
         config: Record<string, any>;
@@ -22,6 +25,19 @@ type FullBudProviderOptions = {
 };
 declare function BudProvider(this: any, options: FullBudProviderOptions): {
     exports: {
+        getTokens: () => Promise<true | {
+            when: number;
+            prev: {
+                refreshToken: any;
+                accessToken: any;
+                config: string;
+            };
+            current: {
+                refreshToken: any;
+                accessToken: any;
+                config: string;
+            };
+        }>;
         getGateway: (spec: {
             redirect_url: string;
             clientid: string;
@@ -31,10 +47,19 @@ declare function BudProvider(this: any, options: FullBudProviderOptions): {
             mode?: string;
         }) => Promise<any>;
         sdk: () => null;
-        stats: () => any;
+        stats: () => {
+            refresh: number;
+            access: number;
+            loadrefresh: number;
+            loadaccess: number;
+            req: number;
+            res: number;
+            error: number;
+            notfound: number;
+        };
         util: {
-            getTokenState: () => "active" | "start" | "refresh" | "init" | "request";
-            setTokenState: (tokenStateIn: "active" | "start" | "refresh" | "init" | "request") => "active" | "start" | "refresh" | "init" | "request";
+            getTokenState: () => "active" | "start" | "refresh" | "request" | "init";
+            setTokenState: (tokenStateIn: "active" | "start" | "refresh" | "request" | "init") => "active" | "start" | "refresh" | "request" | "init";
             getToken: (name: string) => any;
             setToken: (name: string, value: string) => void;
         };
