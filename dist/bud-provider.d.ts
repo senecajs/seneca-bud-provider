@@ -42,6 +42,8 @@ declare function BudProvider(this: any, options: FullBudProviderOptions): {
             when: number;
             refreshToken: any;
             accessToken: any;
+            tokenState: "active";
+            config: any;
         }>;
         getGateway: (spec: {
             redirect_url: string;

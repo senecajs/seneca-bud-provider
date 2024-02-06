@@ -574,14 +574,22 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
   }
 
 
-
   async function loadTokens() {
     refreshToken = await options.store.loadToken('refresh')
     accessToken = await options.store.loadToken('access')
+
+    let authContent = 'Bearer ' + accessToken
+    config.headers['Authorization'] = authContent
+    config.headers['X-Client-Id'] = seneca.shared.clientid
+
+    tokenState = 'active'
+
     return {
       when: Date.now(),
       refreshToken,
       accessToken,
+      tokenState,
+      config,
     }
   }
 
