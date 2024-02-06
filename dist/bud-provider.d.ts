@@ -25,7 +25,7 @@ type FullBudProviderOptions = {
 };
 declare function BudProvider(this: any, options: FullBudProviderOptions): {
     exports: {
-        getTokens: () => Promise<true | {
+        requestTokens: () => Promise<true | {
             when: number;
             prev: {
                 refreshToken: any;
@@ -37,6 +37,11 @@ declare function BudProvider(this: any, options: FullBudProviderOptions): {
                 accessToken: any;
                 config: string;
             };
+        }>;
+        loadTokens: () => Promise<{
+            when: number;
+            refreshToken: any;
+            accessToken: any;
         }>;
         getGateway: (spec: {
             redirect_url: string;

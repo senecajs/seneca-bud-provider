@@ -38,13 +38,13 @@ describe('bud-provider', () => {
   })
 
   
-  test('getTokens', async () => {
+  test('requestTokens', async () => {
     if (null == Config) return;
 
     const seneca = await makeSeneca({debug:true, print:{request:true}})
-    const getTokens = seneca.export('BudProvider/getTokens')
+    const requestTokens = seneca.export('BudProvider/requestTokens')
 
-    const tokens = await getTokens()
+    const tokens = await requestTokens()
     console.dir(tokens,{depth:null})
 
     expect(tokens.when).toBeDefined()
@@ -56,7 +56,7 @@ describe('bud-provider', () => {
 
     const seneca = await makeSeneca({debug:true, print:{request:true}})
 
-    seneca.entity("provider/bud/obp").list$()
+    // seneca.entity("provider/bud/obp").list$()
     const list = await seneca.entity("provider/bud/obp").list$()
 
     // console.log(list)
@@ -233,6 +233,9 @@ describe('bud-provider', () => {
     })
     
     console.log('PERSIST STATS', seneca.export('BudProvider/stats')())
+
+    const loadTokens = seneca.export('BudProvider/loadTokens')
+    console.log('loadTokens', await loadTokens())
     
   }, 22222)
 
