@@ -71,7 +71,7 @@ describe('bud-provider', () => {
   test('token-refresh', async () => {
     if (null == Config) return;
 
-    const seneca = await makeSeneca()
+    const seneca = await makeSeneca({debug:true,print:{request:true}})
     let list = await seneca.entity("provider/bud/obp").list$()
     expect(list.length > 0).toBeTruthy()
     console.log('LIST LEN A', list.length)
@@ -94,6 +94,8 @@ describe('bud-provider', () => {
   }, 11111)
 
 
+  /*
+  //  NOTE: needs connect customerid
   // NOTE: only works on sandbox as needs connected account
   test('txdown', async () => {
     if (null == Config) return;
@@ -238,7 +240,7 @@ describe('bud-provider', () => {
     console.log('loadTokens', await loadTokens())
     
   }, 22222)
-
+  */
   
   
   test('maintain', async () => {

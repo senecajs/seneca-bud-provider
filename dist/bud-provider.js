@@ -476,7 +476,7 @@ function BudProvider(options) {
         options.debug && console.log('SP-BUD-GT-ACCESS', tokenState);
         let accessResult = await origFetcher(options.url + 'v1/oauth/token', accessConfig);
         options.debug && console.log('SP-BUD-GT-ACCESS-RESULT', accessResult.status);
-        if (401 === accessResult.status) {
+        if (401 === accessResult.status || 400 === accessResult.status) {
             refreshToken = null;
             tokenState = 'start';
             return true;
@@ -525,7 +525,7 @@ function BudProvider(options) {
             options.debug && console.log('SP-BUDRETRY-500', traceid, attempt, response.status, tokenState);
             return true;
         }
-        if (401 === response.status) {
+        if (401 === response.status || 400 === response.status) {
             options.debug && console.log('SP-BUDRETRY-401', traceid, attempt, response.status, tokenState);
             // Try to refresh the access token first.
             if ('active' === tokenState) {
@@ -601,7 +601,7 @@ function BudProvider(options) {
                         options.debug && console.log('BUDRETRY-ACCESS', traceid, attempt, response.status, tokenState);
                         let accessResult = await origFetcher(options.url + 'v1/oauth/token', accessConfig);
                         options.debug && console.log('BUDRETRY-ACCESS-RESULT', traceid, accessResult.status);
-                        if (401 === accessResult.status) {
+                        if (401 === accessResult.status || 400 === accessResult.status) {
                             refreshToken = null;
                             tokenState = 'start';
                             return true;

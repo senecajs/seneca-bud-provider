@@ -658,7 +658,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
 
     options.debug && console.log('SP-BUD-GT-ACCESS-RESULT', accessResult.status)
 
-    if (401 === accessResult.status) {
+    if (401 === accessResult.status || 400 === accessResult.status) {
       refreshToken = null
       tokenState = 'start'
       return true
@@ -730,7 +730,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
       return true
     }
 
-    if (401 === response.status) {
+    if (401 === response.status || 400 === response.status) {
       options.debug && console.log('SP-BUDRETRY-401', traceid, attempt, response.status, tokenState)
 
       // Try to refresh the access token first.
@@ -835,7 +835,7 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
 
             options.debug && console.log('BUDRETRY-ACCESS-RESULT', traceid, accessResult.status)
 
-            if (401 === accessResult.status) {
+            if (401 === accessResult.status || 400 === accessResult.status) {
               refreshToken = null
               tokenState = 'start'
               return true
