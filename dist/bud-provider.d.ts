@@ -23,8 +23,11 @@ declare function BudProvider(this: any, options: FullBudProviderOptions): {
             clientid: string;
             customerid: string;
             customersecret: string;
+            account_id?: string;
+            mode?: string;
         }) => Promise<any>;
         sdk: () => null;
+        stats: () => any;
         util: {
             getTokenState: () => "active" | "start" | "refresh" | "init" | "request";
             setTokenState: (tokenStateIn: "active" | "start" | "refresh" | "init" | "request") => "active" | "start" | "refresh" | "init" | "request";
