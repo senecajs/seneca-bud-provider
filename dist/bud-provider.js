@@ -5,8 +5,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const package_json_1 = __importDefault(require("../package.json"));
-// Default options.
-const defaults = {
+// Default options, built with the shape builders that Seneca passes in
+// `valid`. Seneca 4 closes plain-object defaults, so `retry.config`, which
+// is passed through to fetch-retry (see @seneca/provider), is open.
+const defaults = ({ valid }) => ({
     // NOTE: include trailing /
     url: 'https://api-sandbox.thisisbud.com/',
     // Use global fetch by default - if exists
@@ -18,9 +20,9 @@ const defaults = {
     },
     // See @seneca/provider
     retry: {
-        config: {
+        config: valid.Open({
             retryDelay: 100,
-        }
+        })
     },
     entity: {},
     wait: {
@@ -36,28 +38,29 @@ const defaults = {
         saveToken: async (_kind, _val) => null,
         loadToken: async (_kind) => null,
     }
-};
+});
 function BudProvider(options) {
     const seneca = this;
-    const { Gubu } = seneca.util;
-    const { Open } = Gubu;
-    const CustomerQueryShape = Gubu(Open({
+    // Seneca's validator (shape).
+    const Valid = seneca.valid;
+    const { Open } = Valid;
+    const CustomerQueryShape = Valid(Open({
         customerid: String,
         customersecret: String,
     }));
-    const CustomerHeadersShape = Gubu({
+    const CustomerHeadersShape = Valid({
         'X-Customer-Id': String,
         'X-Customer-Secret': String,
     });
-    const CustomerHeadersIDOnlyShape = Gubu({
+    const CustomerHeadersIDOnlyShape = Valid({
         'X-Customer-Id': String,
     });
-    const CustomerHeadersGatewayShape = Gubu({
+    const CustomerHeadersGatewayShape = Valid({
         'X-Client-Id': String,
         'X-Customer-Id': String,
         'X-Customer-Secret': String,
     });
-    const SharedHeadersShape = Gubu({
+    const SharedHeadersShape = Valid({
         'X-Client-Id': String,
         Authorization: String,
     });

@@ -33,8 +33,10 @@ type FullBudProviderOptions = {
 type BudProviderOptions = Partial<FullBudProviderOptions>
 
 
-// Default options.
-const defaults: BudProviderOptions = {
+// Default options, built with the shape builders that Seneca passes in
+// `valid`. Seneca 4 closes plain-object defaults, so `retry.config`, which
+// is passed through to fetch-retry (see @seneca/provider), is open.
+const defaults = ({ valid }: { valid: any }): BudProviderOptions => ({
 
   // NOTE: include trailing /
   url: 'https://api-sandbox.thisisbud.com/',
@@ -51,9 +53,9 @@ const defaults: BudProviderOptions = {
 
   // See @seneca/provider
   retry: {
-    config: {
+    config: valid.Open({
       retryDelay: 100,
-    }
+    })
   },
 
   entity: {},
@@ -75,37 +77,38 @@ const defaults: BudProviderOptions = {
     saveToken: async (_kind: string, _val: string) => null,
     loadToken: async (_kind: string) => null,
   }
-}
+})
 
 
 function BudProvider(this: any, options: FullBudProviderOptions) {
   const seneca: any = this
 
-  const { Gubu } = seneca.util
-  const { Open } = Gubu
+  // Seneca's validator (shape).
+  const Valid = seneca.valid
+  const { Open } = Valid
 
-  const CustomerQueryShape = Gubu(Open({
+  const CustomerQueryShape = Valid(Open({
     customerid: String,
     customersecret: String,
   }))
 
 
-  const CustomerHeadersShape = Gubu({
+  const CustomerHeadersShape = Valid({
     'X-Customer-Id': String,
     'X-Customer-Secret': String,
   })
 
-  const CustomerHeadersIDOnlyShape = Gubu({
+  const CustomerHeadersIDOnlyShape = Valid({
     'X-Customer-Id': String,
   })
 
-  const CustomerHeadersGatewayShape = Gubu({
+  const CustomerHeadersGatewayShape = Valid({
     'X-Client-Id': String,
     'X-Customer-Id': String,
     'X-Customer-Secret': String,
   })
 
-  const SharedHeadersShape = Gubu({
+  const SharedHeadersShape = Valid({
     'X-Client-Id': String,
     Authorization: String,
   })

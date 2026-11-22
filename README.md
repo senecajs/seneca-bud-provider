@@ -6,7 +6,7 @@ Provides access to the Bud CMS API using the Seneca _provider_
 convention. Bud CMS API entities are represented as Seneca entities so
 that they can be accessed using the Seneca entity API and messages.
 
-See [seneca-entity](senecajs/seneca-entity) and the [Seneca Data
+See [@seneca/entity](https://github.com/senecajs/seneca-entity) and the [Seneca Data
 Entities
 Tutorial](https://senecajs.org/docs/tutorials/understanding-data-entities.html) for more details on the Seneca entity API.
 
@@ -59,8 +59,10 @@ Console.log('UPDATED BOARD', board)
 
 ## Install
 
+Requires Seneca 4 and Node.js 24 or later.
+
 ```sh
-$ npm install @seneca/bud-provider @seneca/env
+$ npm install seneca@^4 @seneca/entity @seneca/provider @seneca/env @seneca/bud-provider
 ```
 
 ## How to get access

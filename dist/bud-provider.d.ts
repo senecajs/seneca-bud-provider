@@ -65,8 +65,8 @@ declare function BudProvider(this: any, options: FullBudProviderOptions): {
             notfound: number;
         };
         util: {
-            getTokenState: () => "active" | "start" | "refresh" | "request" | "init";
-            setTokenState: (tokenStateIn: "active" | "start" | "refresh" | "request" | "init") => "active" | "start" | "refresh" | "request" | "init";
+            getTokenState: () => "active" | "start" | "refresh" | "init" | "request";
+            setTokenState: (tokenStateIn: "active" | "start" | "refresh" | "init" | "request") => "active" | "start" | "refresh" | "init" | "request";
             getToken: (name: string) => any;
             setToken: (name: string, value: string) => void;
         };
