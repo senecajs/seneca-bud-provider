@@ -100,6 +100,52 @@ describe('bud-provider', () => {
   })
 
 
+  test('requestTokens-access-fail', async () => {
+    // Only the mock can make Bud reject the refresh token grant.
+    if (null == mock) return
+
+    for (const status of [401, 400]) {
+      // After the failure, the next request waits for tokens: not for long.
+      const seneca = await makeSeneca({ wait: { refresh: { max: 222, interval: 22 } } })
+      const requestTokens = seneca.export('BudProvider/requestTokens')
+      const { getTokenState, getToken } = seneca.export('BudProvider/util')
+
+      // The access token grant fails: requestTokens rejects, as it does for
+      // any other failed status, instead of resolving without tokens.
+      mock.reject.refresh_token = status
+      try {
+        await expect(requestTokens()).rejects
+          .toThrow('bud-provider: access-token: status:' + status)
+      }
+      finally {
+        delete mock.reject.refresh_token
+      }
+
+      expect(mock.calls.map(callDesc)).toEqual([
+        'POST /v1/oauth/token client_credentials 200',
+        'POST /v1/oauth/token refresh_token ' + status,
+      ])
+      expect(getTokenState()).toEqual('start')
+      expect(getToken('refresh')).toBeNull()
+      expect(getToken('access')).toBeNull()
+
+      // The next request still gets new tokens through the retry.
+      mock.calls.length = 0
+      const list = await seneca.entity("provider/bud/obp").list$()
+      expect(list.map((obp) => obp.id)).toEqual(['Amex', 'Monzo'])
+      expect(mock.calls.map(callDesc)).toEqual([
+        'GET /v1/open-banking/providers 401',
+        'POST /v1/oauth/token client_credentials 200',
+        'POST /v1/oauth/token refresh_token 200',
+        'GET /v1/open-banking/providers 200',
+      ])
+      expect(getTokenState()).toEqual('active')
+
+      await seneca.close()
+    }
+  }, 11111)
+
+
   test('obp-list', async () => {
     const seneca = await makeSeneca({debug:true, print:{request:true}})
 
@@ -471,9 +517,11 @@ function callDesc(call) {
 //
 // A missing or unknown token gets 401 with Bud's error body
 // { operation_id, code_id, message }. Issued refresh tokens stay valid.
-// Each request is recorded in calls.
+// Each request is recorded in calls. A test can set reject[grant_type] to
+// 401 or 400 to make that grant fail.
 async function makeMockBudApi(spec) {
   const calls = []
+  const reject = {}
   const refreshTokens = new Set()
   const accessTokens = new Set()
   let tokenCount = 0
@@ -523,9 +571,26 @@ async function makeMockBudApi(spec) {
     }]
   }
 
+  function invalid() {
+    return [400, {
+      operation_id: 'oauth_token_post',
+      code_id: 'failed_validation',
+      message: 'Invalid request payload.',
+      metadata: {},
+      errors: { grant_type: 'This value is invalid.' },
+    }]
+  }
+
   function token(req, body) {
     const params = new URLSearchParams(body)
     const grant = params.get('grant_type')
+
+    if (401 === reject[grant]) {
+      return [grant, unauthorized('token_invalid')]
+    }
+    if (400 === reject[grant]) {
+      return [grant, invalid()]
+    }
 
     if ('client_credentials' === grant) {
       if (basic !== req.headers.authorization) {
@@ -542,13 +607,7 @@ async function makeMockBudApi(spec) {
       return [grant, [200, { operation_id: 'oauth_token_post', data: issueTokens() }]]
     }
 
-    return [grant, [400, {
-      operation_id: 'oauth_token_post',
-      code_id: 'failed_validation',
-      message: 'Invalid request payload.',
-      metadata: {},
-      errors: { grant_type: 'This value is invalid.' },
-    }]]
+    return [grant, invalid()]
   }
 
   function listProviders(req) {
@@ -603,6 +662,7 @@ async function makeMockBudApi(spec) {
     // NOTE: include trailing /, as the url option of the plugin does.
     url: 'http://127.0.0.1:' + server.address().port + '/',
     calls,
+    reject,
     close: () => new Promise((resolve) => server.close(resolve)),
   }
 }

@@ -25,7 +25,7 @@ type FullBudProviderOptions = {
 };
 declare function BudProvider(this: any, options: FullBudProviderOptions): {
     exports: {
-        requestTokens: () => Promise<true | {
+        requestTokens: () => Promise<{
             when: number;
             prev: {
                 refreshToken: any;

@@ -20,6 +20,10 @@ is now merged.
 * The option `retry.config` is passed through to fetch-retry, so it stays
   open on Seneca 4 and accepts any fetch-retry setting, such as `retries`
   (B13).
+* The exported `requestTokens()` rejects with the error
+  `bud-provider: access-token: status:<status>` when Bud answers the access
+  token request with 401 or 400. It used to resolve to `true`, without
+  tokens.
 * Tests load plugins by full name (`@seneca/entity`, `@seneca/env`,
   `@seneca/provider`) and no longer load `user`. Without credentials the
   `requestTokens`, `obp-list` and `token-refresh` tests run against a local

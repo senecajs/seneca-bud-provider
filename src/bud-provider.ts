@@ -661,12 +661,14 @@ function BudProvider(this: any, options: FullBudProviderOptions) {
 
     options.debug && console.log('SP-BUD-GT-ACCESS-RESULT', accessResult.status)
 
+    // The refresh token was rejected: drop it, so that retryOn starts again
+    // with a new one. There is no retry here, so fail as for other statuses.
     if (401 === accessResult.status || 400 === accessResult.status) {
       refreshToken = null
       tokenState = 'start'
-      return true
     }
-    else if (200 !== accessResult.status) {
+
+    if (200 !== accessResult.status) {
       throw new Error('bud-provider: access-token: status:' + accessResult.status)
     }
 
