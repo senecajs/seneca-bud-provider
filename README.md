@@ -6,7 +6,7 @@ Provides access to the Bud CMS API using the Seneca _provider_
 convention. Bud CMS API entities are represented as Seneca entities so
 that they can be accessed using the Seneca entity API and messages.
 
-See [seneca-entity](senecajs/seneca-entity) and the [Seneca Data
+See [@seneca/entity](https://github.com/senecajs/seneca-entity) and the [Seneca Data
 Entities
 Tutorial](https://senecajs.org/docs/tutorials/understanding-data-entities.html) for more details on the Seneca entity API.
 
@@ -59,8 +59,10 @@ Console.log('UPDATED BOARD', board)
 
 ## Install
 
+Requires Seneca 4 and Node.js 24 or later.
+
 ```sh
-$ npm install @seneca/bud-provider @seneca/env
+$ npm install seneca@^4 @seneca/entity @seneca/provider @seneca/env @seneca/bud-provider
 ```
 
 ## How to get access
@@ -72,12 +74,14 @@ $ npm install @seneca/bud-provider @seneca/env
 ## Options
 
 * `url` : string
-* `fetch` : any
+* `fetch` : function
 * `debug` : boolean
+* `print` : object
 * `retry` : object
 * `entity` : object
 * `wait` : object
 * `limit` : object
+* `store` : object
 * `init$` : boolean
 
 
@@ -88,14 +92,14 @@ $ npm install @seneca/bud-provider @seneca/env
 
 ## Action Patterns
 
-* ["sys":"entity","base":"bud","cmd":"list","name":"account","zone":"provider"](#-sysentitybasebudcmdlistnameaccountzoneprovider-)
-* ["sys":"entity","base":"bud","cmd":"list","name":"obp","zone":"provider"](#-sysentitybasebudcmdlistnameobpzoneprovider-)
-* ["sys":"entity","base":"bud","cmd":"list","name":"transaction","zone":"provider"](#-sysentitybasebudcmdlistnametransactionzoneprovider-)
-* ["sys":"entity","base":"bud","cmd":"load","name":"account","zone":"provider"](#-sysentitybasebudcmdloadnameaccountzoneprovider-)
-* ["sys":"entity","base":"bud","cmd":"load","name":"connection","zone":"provider"](#-sysentitybasebudcmdloadnameconnectionzoneprovider-)
-* ["sys":"entity","base":"bud","cmd":"load","name":"customer","zone":"provider"](#-sysentitybasebudcmdloadnamecustomerzoneprovider-)
-* ["sys":"entity","base":"bud","cmd":"save","name":"customer","zone":"provider"](#-sysentitybasebudcmdsavenamecustomerzoneprovider-)
-* ["sys":"provider","get":"info","provider":"bud"](#-sysprovidergetinfoproviderbud-)
+* [sys:entity,base:bud,cmd:list,name:account,zone:provider](#-sysentitybasebudcmdlistnameaccountzoneprovider-)
+* [sys:entity,base:bud,cmd:list,name:obp,zone:provider](#-sysentitybasebudcmdlistnameobpzoneprovider-)
+* [sys:entity,base:bud,cmd:list,name:transaction,zone:provider](#-sysentitybasebudcmdlistnametransactionzoneprovider-)
+* [sys:entity,base:bud,cmd:load,name:account,zone:provider](#-sysentitybasebudcmdloadnameaccountzoneprovider-)
+* [sys:entity,base:bud,cmd:load,name:connection,zone:provider](#-sysentitybasebudcmdloadnameconnectionzoneprovider-)
+* [sys:entity,base:bud,cmd:load,name:customer,zone:provider](#-sysentitybasebudcmdloadnamecustomerzoneprovider-)
+* [sys:entity,base:bud,cmd:save,name:customer,zone:provider](#-sysentitybasebudcmdsavenamecustomerzoneprovider-)
+* [sys:provider,get:info,provider:bud](#-sysprovidergetinfoproviderbud-)
 
 
 <!--END:action-list-->
@@ -105,56 +109,56 @@ $ npm install @seneca/bud-provider @seneca/env
 
 ## Action Descriptions
 
-### &laquo; `"sys":"entity","base":"bud","cmd":"list","name":"account","zone":"provider"` &raquo;
+### &laquo; `sys:entity,base:bud,cmd:list,name:account,zone:provider` &raquo;
 
 No description provided.
 
 
 
 ----------
-### &laquo; `"sys":"entity","base":"bud","cmd":"list","name":"obp","zone":"provider"` &raquo;
+### &laquo; `sys:entity,base:bud,cmd:list,name:obp,zone:provider` &raquo;
 
 No description provided.
 
 
 
 ----------
-### &laquo; `"sys":"entity","base":"bud","cmd":"list","name":"transaction","zone":"provider"` &raquo;
+### &laquo; `sys:entity,base:bud,cmd:list,name:transaction,zone:provider` &raquo;
 
 No description provided.
 
 
 
 ----------
-### &laquo; `"sys":"entity","base":"bud","cmd":"load","name":"account","zone":"provider"` &raquo;
+### &laquo; `sys:entity,base:bud,cmd:load,name:account,zone:provider` &raquo;
 
 No description provided.
 
 
 
 ----------
-### &laquo; `"sys":"entity","base":"bud","cmd":"load","name":"connection","zone":"provider"` &raquo;
+### &laquo; `sys:entity,base:bud,cmd:load,name:connection,zone:provider` &raquo;
 
 No description provided.
 
 
 
 ----------
-### &laquo; `"sys":"entity","base":"bud","cmd":"load","name":"customer","zone":"provider"` &raquo;
+### &laquo; `sys:entity,base:bud,cmd:load,name:customer,zone:provider` &raquo;
 
 No description provided.
 
 
 
 ----------
-### &laquo; `"sys":"entity","base":"bud","cmd":"save","name":"customer","zone":"provider"` &raquo;
+### &laquo; `sys:entity,base:bud,cmd:save,name:customer,zone:provider` &raquo;
 
 No description provided.
 
 
 
 ----------
-### &laquo; `"sys":"provider","get":"info","provider":"bud"` &raquo;
+### &laquo; `sys:provider,get:info,provider:bud` &raquo;
 
 Get information about the Bud SDK.
 

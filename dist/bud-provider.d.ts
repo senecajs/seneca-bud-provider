@@ -2,6 +2,9 @@ type FullBudProviderOptions = {
     url: string;
     fetch: any;
     debug: boolean;
+    print: {
+        request: boolean;
+    };
     entity: Record<string, Record<string, any>>;
     retry: {
         config: Record<string, any>;
@@ -15,9 +18,33 @@ type FullBudProviderOptions = {
     limit: {
         retry: number;
     };
+    store: {
+        saveToken: any;
+        loadToken: any;
+    };
 };
 declare function BudProvider(this: any, options: FullBudProviderOptions): {
     exports: {
+        requestTokens: () => Promise<{
+            when: number;
+            prev: {
+                refreshToken: any;
+                accessToken: any;
+                config: string;
+            };
+            current: {
+                refreshToken: any;
+                accessToken: any;
+                config: string;
+            };
+        }>;
+        loadTokens: () => Promise<{
+            when: number;
+            refreshToken: any;
+            accessToken: any;
+            tokenState: "active";
+            config: any;
+        }>;
         getGateway: (spec: {
             redirect_url: string;
             clientid: string;
@@ -27,7 +54,16 @@ declare function BudProvider(this: any, options: FullBudProviderOptions): {
             mode?: string;
         }) => Promise<any>;
         sdk: () => null;
-        stats: () => any;
+        stats: () => {
+            refresh: number;
+            access: number;
+            loadrefresh: number;
+            loadaccess: number;
+            req: number;
+            res: number;
+            error: number;
+            notfound: number;
+        };
         util: {
             getTokenState: () => "active" | "start" | "refresh" | "init" | "request";
             setTokenState: (tokenStateIn: "active" | "start" | "refresh" | "init" | "request") => "active" | "start" | "refresh" | "init" | "request";
